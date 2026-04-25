@@ -1,5 +1,10 @@
 import Link from 'next/link'
-import { Facebook, Instagram, Twitter, Youtube } from 'lucide-react'
+
+const Social = ({ label }: { label: string }) => (
+  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-xs font-bold uppercase tracking-wide text-gray-500 transition hover:border-primary hover:text-primary">
+    {label}
+  </span>
+)
 
 const cols = [
   {
@@ -48,19 +53,11 @@ export function Footer() {
             El marketplace deportivo del Perú. Encuentra y reserva canchas de fútbol,
             vóley, básquet y más, a un clic.
           </p>
-          <div className="mt-5 flex items-center gap-3 text-gray-500">
-            <a aria-label="Instagram" href="#" className="hover:text-primary">
-              <Instagram size={20} />
-            </a>
-            <a aria-label="Facebook" href="#" className="hover:text-primary">
-              <Facebook size={20} />
-            </a>
-            <a aria-label="Twitter" href="#" className="hover:text-primary">
-              <Twitter size={20} />
-            </a>
-            <a aria-label="Youtube" href="#" className="hover:text-primary">
-              <Youtube size={20} />
-            </a>
+          <div className="mt-5 flex items-center gap-3">
+            <a aria-label="Instagram" href="#"><Social label="IG" /></a>
+            <a aria-label="Facebook" href="#"><Social label="FB" /></a>
+            <a aria-label="Twitter" href="#"><Social label="TW" /></a>
+            <a aria-label="Youtube" href="#"><Social label="YT" /></a>
           </div>
         </div>
         {cols.map((col) => (
