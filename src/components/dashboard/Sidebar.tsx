@@ -17,6 +17,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { cn } from '@/lib/utils'
 import { useModulosDisponibles } from '@/hooks/modulos/useModulosDisponibles'
 import { useLocalActualContext } from '@/contexts/LocalActualContext'
+import { useIsMounted } from '@/hooks/useIsMounted'
 import { moduloIcon } from './moduloIcon'
 import { resolveRuta } from './rutaResolver'
 import type { ModuloNodo } from '@/types'
@@ -102,8 +103,12 @@ function ParentSection({
 function LocalSelector() {
   const { local, locales, setLocalId, isLoading } = useLocalActualContext()
   const [open, setOpen] = useState(false)
+  const mounted = useIsMounted()
 
-  if (isLoading) {
+  // Antes del mount renderizamos exactamente el mismo loading que vería el SSR,
+  // para que no haya hydration mismatch cuando el contexto se hidrate desde
+  // localStorage / queries dependientes de window.
+  if (!mounted || isLoading) {
     return (
       <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
         <span className="flex items-center gap-2">
@@ -194,9 +199,13 @@ function LocalSelector() {
 
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const mounted = useIsMounted()
   const { data: modulos, isLoading: loadingModulos } = useModulosDisponibles('WEB')
 
   const dashboardActive = pathname === '/dashboard'
+  // Mientras no estemos montados en cliente, forzamos el render "cargando"
+  // para que SSR y la primera hidratación coincidan al 100%.
+  const showLoadingModulos = !mounted || loadingModulos
 
   const content = (
     <>
@@ -248,7 +257,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </ul>
         </div>
 
-        {loadingModulos ? (
+        {showLoadingModulos ? (
           <div className="mt-5 flex items-center gap-2 px-3 py-2 text-xs text-gray-500">
             <Spinner size="sm" /> Cargando módulos…
           </div>

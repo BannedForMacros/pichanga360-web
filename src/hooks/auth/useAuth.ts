@@ -4,7 +4,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api, { tokenStore } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { MeResponse, TokenResponse } from '@/types'
-import type { LoginFormData, RegistroFormData } from '@/validators/auth/auth.schema'
+import type {
+  LoginFormData,
+  RegistroEmpresaFormData,
+  RegistroFormData,
+} from '@/validators/auth/auth.schema'
 
 export function useUsuarioActual() {
   return useQuery<MeResponse | null>({
@@ -48,6 +52,40 @@ export function useRegistro() {
       tokenStore.set(data.accessToken, data.refreshToken)
       queryClient.setQueryData(['auth', 'me'], { user: data.user, roles: data.roles })
       toast.success('¡Cuenta creada con éxito!', { position: 'top-right' })
+    },
+  })
+}
+
+export function useRegistroEmpresa() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: RegistroEmpresaFormData) => {
+      // El backend rechaza props extras (whitelist + forbidNonWhitelisted),
+      // así que filtramos los campos puramente del formulario.
+      const {
+        confirmarPassword: _ignoreConfirm,
+        aceptoTerminos: _ignoreAcepto,
+        telefono,
+        logoUrl,
+        ...rest
+      } = input
+      const payload = {
+        ...rest,
+        telefono: telefono || undefined,
+        logoUrl: logoUrl || undefined,
+      }
+      const { data } = await api.post<TokenResponse>(
+        '/auth/register-empresa',
+        payload,
+      )
+      return data
+    },
+    onSuccess: (data) => {
+      tokenStore.set(data.accessToken, data.refreshToken)
+      queryClient.setQueryData(['auth', 'me'], { user: data.user, roles: data.roles })
+      toast.success(`¡Bienvenido a Pichanga360, ${data.user.nombre}!`, {
+        position: 'top-right',
+      })
     },
   })
 }
