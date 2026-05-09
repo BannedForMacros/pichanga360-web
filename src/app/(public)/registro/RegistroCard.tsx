@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, Phone, User } from 'lucide-react'
+import { Building2, Mail, Phone, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -46,10 +46,30 @@ export function RegistroCard() {
         </span>
       </Link>
 
-      <h1 className="mt-6 text-center text-xl font-bold text-dark">Crea tu cuenta</h1>
+      <h1 className="mt-6 text-center text-xl font-bold text-dark">
+        Crea tu cuenta de jugador
+      </h1>
       <p className="mt-1 text-center text-sm text-gray-500">
-        Reserva canchas más rápido o registra la tuya.
+        Reserva canchas, paga al instante y deja reseñas.
       </p>
+
+      <Link
+        href="/registro-empresa"
+        className="mt-4 flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-left text-sm transition hover:border-warning hover:bg-warning/20"
+      >
+        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning text-white">
+          <Building2 size={14} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-dark">
+            ¿Eres dueño de una cancha?
+          </span>
+          <span className="block text-xs text-gray-600">
+            Registra tu empresa y empieza a recibir reservas con plan trial de 30
+            días gratis →
+          </span>
+        </span>
+      </Link>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div className="grid gap-4 md:grid-cols-2">

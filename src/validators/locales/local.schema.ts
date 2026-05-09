@@ -11,12 +11,12 @@ export const localSchema = z.object({
   provincia: z.string().min(1, 'Ingresa la provincia'),
   departamento: z.string().min(1, 'Ingresa el departamento'),
   pais: z.string().optional(),
-  latitud: z.coerce
-    .number({ invalid_type_error: 'Latitud inválida' })
+  latitud: z
+    .number({ message: 'Ingresa una latitud válida' })
     .min(-90, 'Latitud fuera de rango')
     .max(90, 'Latitud fuera de rango'),
-  longitud: z.coerce
-    .number({ invalid_type_error: 'Longitud inválida' })
+  longitud: z
+    .number({ message: 'Ingresa una longitud válida' })
     .min(-180, 'Longitud fuera de rango')
     .max(180, 'Longitud fuera de rango'),
 })

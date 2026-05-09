@@ -1,4 +1,5 @@
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
+import { DashboardGuard } from '@/components/dashboard/DashboardGuard'
 import { LocalActualProvider } from '@/contexts/LocalActualContext'
 
 export default function DashboardLayout({
@@ -8,7 +9,9 @@ export default function DashboardLayout({
 }) {
   return (
     <LocalActualProvider>
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardGuard>
+        <DashboardShell>{children}</DashboardShell>
+      </DashboardGuard>
     </LocalActualProvider>
   )
 }
