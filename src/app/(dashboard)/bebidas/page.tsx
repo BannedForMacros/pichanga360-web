@@ -2,66 +2,27 @@
 
 import { useState } from 'react'
 import { Header } from '@/components/dashboard/Header'
+import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { Spinner } from '@/components/ui/Spinner'
 import { ProductoForm } from '@/components/bebidas/ProductoForm'
 import { ProductoTable } from '@/components/bebidas/ProductoTable'
+import { useProductosByLocal } from '@/hooks/bebidas/useProductos'
 import { useEliminarProducto } from '@/hooks/bebidas/useProductosMutaciones'
+import { useLocalActual } from '@/hooks/auth/useLocalActual'
 import type { Producto } from '@/types'
 
-const productosMock: Producto[] = [
-  {
-    id: 'p-1',
-    localId: 'l-1',
-    nombre: 'Gatorade 500ml',
-    categoria: 'HIDRATANTE',
-    precio: 6,
-    stock: 24,
-    activo: true,
-  },
-  {
-    id: 'p-2',
-    localId: 'l-1',
-    nombre: 'Coca-Cola 500ml',
-    categoria: 'BEBIDA',
-    precio: 5,
-    stock: 18,
-    activo: true,
-  },
-  {
-    id: 'p-3',
-    localId: 'l-1',
-    nombre: 'Snickers',
-    categoria: 'SNACK',
-    precio: 4,
-    stock: 12,
-    activo: true,
-  },
-  {
-    id: 'p-4',
-    localId: 'l-1',
-    nombre: 'Empanada de carne',
-    categoria: 'COMIDA',
-    precio: 8,
-    stock: 6,
-    activo: true,
-  },
-  {
-    id: 'p-5',
-    localId: 'l-1',
-    nombre: 'Agua sin gas 500ml',
-    categoria: 'BEBIDA',
-    precio: 3,
-    stock: 0,
-    activo: false,
-  },
-]
-
 export default function BebidasPage() {
+  const { open: openMenu } = useDashboardMenu()
+  const { localId, isLoading: loadingLocal } = useLocalActual()
+
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Producto | undefined>()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [target, setTarget] = useState<Producto | null>(null)
+
+  const { data: productos, isLoading } = useProductosByLocal(localId ?? undefined)
   const eliminar = useEliminarProducto()
 
   return (
@@ -74,20 +35,37 @@ export default function BebidasPage() {
           setOpen(true)
         }}
         newLabel="+ Nuevo producto"
+        onOpenMenu={openMenu}
       />
-      <div className="p-6">
-        <ProductoTable
-          productos={productosMock}
-          onEdit={(p) => {
-            setEditing(p)
-            setOpen(true)
-          }}
-          onDelete={(p) => {
-            setTarget(p)
-            setConfirmOpen(true)
-          }}
-        />
+      <div className="p-4 sm:p-6">
+        {loadingLocal || isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="lg" />
+          </div>
+        ) : !localId ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+            <p className="text-base font-semibold text-dark">
+              Aún no tienes un local registrado
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              Crea un local primero para vender productos.
+            </p>
+          </div>
+        ) : (
+          <ProductoTable
+            productos={productos ?? []}
+            onEdit={(p) => {
+              setEditing(p)
+              setOpen(true)
+            }}
+            onDelete={(p) => {
+              setTarget(p)
+              setConfirmOpen(true)
+            }}
+          />
+        )}
       </div>
+
       <Modal
         isOpen={open}
         onClose={() => setOpen(false)}
@@ -96,10 +74,12 @@ export default function BebidasPage() {
       >
         <ProductoForm
           producto={editing}
+          localId={localId ?? undefined}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />
       </Modal>
+
       <ConfirmModal
         isOpen={confirmOpen}
         title="Eliminar producto"

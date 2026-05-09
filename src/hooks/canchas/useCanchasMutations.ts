@@ -3,12 +3,38 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import toast from 'react-hot-toast'
-import type { Cancha } from '@/types'
+import type { Cancha, EstadoCancha } from '@/types'
 
-export function useCrearCancha() {
+export interface CreateCanchaInput {
+  nombre: string
+  superficieId: string
+  tipoCanchaId?: string
+  capacidadJugadores?: number
+  fotos?: string[]
+}
+
+export interface UpdateCanchaInput {
+  nombre?: string
+  superficieId?: string
+  tipoCanchaId?: string
+  capacidadJugadores?: number
+  fotos?: string[]
+  estado?: EstadoCancha
+}
+
+/**
+ * Backend: POST /locales/:localId/canchas
+ */
+export function useCrearCancha(localId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: Partial<Cancha>) => api.post('/canchas', data),
+    mutationFn: async (data: CreateCanchaInput) => {
+      const { data: cancha } = await api.post<Cancha>(
+        `/locales/${localId}/canchas`,
+        data
+      )
+      return cancha
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['canchas'] })
       toast.success('Cancha creada correctamente', { position: 'top-right' })
@@ -16,11 +42,16 @@ export function useCrearCancha() {
   })
 }
 
+/**
+ * Backend: PATCH /canchas/:id
+ */
 export function useEditarCancha() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Cancha> }) =>
-      api.put(`/canchas/${id}`, data),
+    mutationFn: async ({ id, data }: { id: string; data: UpdateCanchaInput }) => {
+      const { data: cancha } = await api.patch<Cancha>(`/canchas/${id}`, data)
+      return cancha
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['canchas'] })
       toast.success('Cancha actualizada correctamente', { position: 'top-right' })
@@ -28,6 +59,9 @@ export function useEditarCancha() {
   })
 }
 
+/**
+ * Backend: DELETE /canchas/:id (soft delete)
+ */
 export function useEliminarCancha() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -1,27 +1,31 @@
 // ============================================================
-// Enums del dominio Pichanga360
+// Pichanga360 — Tipos de dominio (alineados al backend NestJS/Prisma)
+// schema.prisma → estos tipos son el reflejo 1:1 de los modelos Prisma
 // ============================================================
 
-export type RolNombre = 'SUPERADMIN' | 'ADMIN_EMPRESA' | 'OPERADOR' | 'CLIENTE'
+// ---------- Enums ----------
+export type TipoRol =
+  | 'SUPER_ADMIN'
+  | 'ADMIN_EMPRESA'
+  | 'ADMIN_LOCAL'
+  | 'OPERADOR'
+  | 'CLIENTE'
 
-export type Deporte = 'FUTBOL' | 'VOLEY' | 'BASKET' | 'TENIS' | 'PADEL' | 'OTRO'
+export type TipoPlan = 'BASICO' | 'PRO' | 'ENTERPRISE'
 
-export type Superficie = 'SINTETICO' | 'GRASS' | 'CEMENTO' | 'MADERA'
+export type EstadoSuscripcion = 'ACTIVA' | 'VENCIDA' | 'SUSPENDIDA' | 'CANCELADA'
+
+export type EstadoPagoSuscripcion =
+  | 'PENDIENTE'
+  | 'PAGADO'
+  | 'RECHAZADO'
+  | 'DEVUELTO'
+
+export type TipoTelefono = 'PRINCIPAL' | 'WHATSAPP' | 'REFERENCIA'
 
 export type EstadoCancha = 'ACTIVA' | 'INACTIVA' | 'MANTENIMIENTO'
 
-export type EstadoReserva =
-  | 'PENDIENTE'
-  | 'CONFIRMADA'
-  | 'CANCELADA'
-  | 'COMPLETADA'
-  | 'NO_ASISTIO'
-
-export type MetodoPago = 'EFECTIVO' | 'YAPE' | 'PLIN' | 'TARJETA' | 'TRANSFERENCIA'
-
-export type EstadoPago = 'PENDIENTE' | 'PAGADO' | 'REEMBOLSADO' | 'FALLIDO'
-
-export type TipoTarifa = 'NORMAL' | 'HORA_PUNTA' | 'FIN_DE_SEMANA' | 'PROMO'
+export type TipoTarifa = 'NORMAL' | 'NOCTURNA' | 'FIN_DE_SEMANA'
 
 export type DiaSemana =
   | 'LUNES'
@@ -32,207 +36,279 @@ export type DiaSemana =
   | 'SABADO'
   | 'DOMINGO'
 
-export type TipoTelefono = 'FIJO' | 'CELULAR' | 'WHATSAPP'
+export type EstadoReserva =
+  | 'PENDIENTE'
+  | 'CONFIRMADA'
+  | 'EN_CURSO'
+  | 'COMPLETADA'
+  | 'CANCELADA'
 
-export type PlanNombre = 'FREE' | 'BASIC' | 'PRO' | 'PREMIUM'
+export type MetodoPago = 'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA'
 
-export type EstadoSuscripcion = 'ACTIVA' | 'CANCELADA' | 'VENCIDA' | 'TRIAL'
+export type EstadoPagoReserva = 'PENDIENTE' | 'PAGADO' | 'DEVUELTO'
 
-export type TipoNotificacion = 'PUSH' | 'EMAIL' | 'SMS'
+export type EstadoVenta = 'PENDIENTE' | 'PAGADO' | 'ANULADO'
 
-export type EstadoNotificacion = 'PENDIENTE' | 'ENVIADA' | 'LEIDA' | 'FALLIDA'
+export type TipoNotificacion = 'WHATSAPP' | 'PUSH' | 'EMAIL'
 
 export type EventoNotificacion =
-  | 'RESERVA_CREADA'
-  | 'RESERVA_CONFIRMADA'
-  | 'RESERVA_CANCELADA'
-  | 'RECORDATORIO'
-  | 'PROMO'
-  | 'PAGO_RECIBIDO'
+  | 'CONFIRMACION_RESERVA'
+  | 'RECORDATORIO_24H'
+  | 'RECORDATORIO_2H'
+  | 'POST_PARTIDO'
+  | 'BIENVENIDA'
 
-// ============================================================
-// Identidad y permisos
-// ============================================================
+export type EstadoNotificacion = 'PENDIENTE' | 'ENVIADO' | 'FALLIDO'
+
+export type PlataformaPush = 'ANDROID' | 'IOS' | 'WEB'
+
+export type TipoResenaObjetivo = 'CANCHA' | 'LOCAL'
+
+// ---------- Códigos visuales (no son enum del backend, son strings que usan
+// los componentes de UI como CanchaSVG para elegir colores). El backend
+// devuelve `Deporte.codigo` y `Superficie.codigo` como string libre, y los
+// mapeamos a estos literales cuando podemos.
+// ----------
+export type DeporteCodigo =
+  | 'FUTBOL'
+  | 'VOLEY'
+  | 'BASKET'
+  | 'TENIS'
+  | 'PADEL'
+  | 'OTRO'
+
+export type SuperficieCodigo = 'SINTETICO' | 'GRASS' | 'CEMENTO' | 'MADERA'
+
+// ---------- Identidad ----------
+export interface Usuario {
+  id: string
+  email: string
+  nombre: string
+  apellido: string
+  telefono: string | null
+  avatarUrl: string | null
+  emailVerificado: boolean
+  activo: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RolAsignacion {
+  rol: TipoRol
+  empresaId: string | null
+  localId: string | null
+}
 
 export interface Rol {
   id: string
-  nombre: RolNombre
-  descripcion?: string
-}
-
-export interface Usuario {
-  id: string
+  codigo: TipoRol
   nombre: string
-  apellido: string
-  email: string
-  telefono?: string
-  avatarUrl?: string
-  fechaCreacion: string
-  activo: boolean
-  roles?: Rol[]
+  descripcion: string | null
 }
 
-export interface UsuarioRol {
-  usuarioId: string
-  rolId: string
-  empresaId?: string
+// ---------- Auth (matchea TokenResponseDto) ----------
+export interface TokenResponse {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  user: Usuario
+  roles: RolAsignacion[]
 }
 
-// ============================================================
-// Empresa y locales
-// ============================================================
+export interface MeResponse {
+  user: Usuario
+  roles: RolAsignacion[]
+}
 
+// ---------- Empresa / Local ----------
 export interface TelefonoEmpresa {
   id: string
   empresaId: string
-  numero: string
-  tipo: TipoTelefono
-}
-
-export interface TelefonoLocal {
-  id: string
-  localId: string
+  codigoPais: string
   numero: string
   tipo: TipoTelefono
 }
 
 export interface Empresa {
   id: string
-  razonSocial: string
+  nombre: string
   ruc: string
-  emailContacto?: string
-  logoUrl?: string
-  fechaCreacion: string
+  logoUrl: string | null
+  activa: boolean
   telefonos?: TelefonoEmpresa[]
+}
+
+export interface TelefonoLocal {
+  id: string
+  localId: string
+  codigoPais: string
+  numero: string
+  tipo: TipoTelefono
 }
 
 export interface Local {
   id: string
   empresaId: string
   nombre: string
-  direccion: string
+  calle: string
+  numero: string
   distrito: string
-  ciudad: string
+  provincia: string
+  departamento: string
+  pais: string
   latitud: number
   longitud: number
-  fotoUrl?: string
+  activo: boolean
   telefonos?: TelefonoLocal[]
+  canchas?: Cancha[]
+  empresa?: Empresa
 }
 
-// ============================================================
-// Canchas y horarios
-// ============================================================
+// ---------- Catálogos ----------
+export interface Deporte {
+  id: string
+  codigo: string
+  nombre: string
+  icono: string | null
+  descripcion: string | null
+  activo: boolean
+}
+
+export interface Superficie {
+  id: string
+  codigo: string
+  nombre: string
+  descripcion: string | null
+  activo: boolean
+}
+
+export interface TipoCancha {
+  id: string
+  empresaId: string
+  deporteId: string
+  nombre: string
+  capacidadDefault: number
+  descripcion: string | null
+  activo: boolean
+  deporte?: Deporte
+}
+
+export interface CategoriaProducto {
+  id: string
+  empresaId: string
+  nombre: string
+  orden: number
+  activo: boolean
+}
+
+// ---------- Cancha / Tarifa / Horario ----------
+export interface Tarifa {
+  id: string
+  canchaId: string | null
+  tipoCanchaId: string | null
+  tipo: TipoTarifa
+  precioHora: number | string
+  horaInicio: string
+  horaFin: string
+}
 
 export interface HorarioCancha {
   id: string
   canchaId: string
-  dia: DiaSemana
+  diaSemana: DiaSemana
   horaApertura: string
   horaCierre: string
-}
-
-export interface Tarifa {
-  id: string
-  canchaId: string
-  tipo: TipoTarifa
-  precio: number
-  desde: string
-  hasta: string
-  diasAplica: DiaSemana[]
 }
 
 export interface Cancha {
   id: string
   localId: string
+  tipoCanchaId: string | null
+  superficieId: string
   nombre: string
-  deporte: Deporte
-  superficie: Superficie
   capacidadJugadores: number
-  descripcion?: string
+  fotos: string[]
   estado: EstadoCancha
-  precioPorHora: number
-  fotoUrl?: string
-  rating?: number
-  totalReseñas?: number
-  horarios?: HorarioCancha[]
-  tarifas?: Tarifa[]
+  createdAt: string
+  updatedAt: string
+  superficie?: Superficie
+  tipoCancha?: TipoCancha
   local?: Local
+  tarifas?: Tarifa[]
+  horarios?: HorarioCancha[]
 }
 
-// ============================================================
-// Reservas
-// ============================================================
-
+// ---------- Reservas ----------
 export interface PagoReserva {
   id: string
   reservaId: string
-  metodo: MetodoPago
-  monto: number
-  estado: EstadoPago
-  fechaPago?: string
-  referencia?: string
+  monto: number | string
+  metodoPago: MetodoPago
+  estado: EstadoPagoReserva
+  referencia: string | null
+  fechaPago: string | null
 }
 
 export interface AuditoriaReserva {
   id: string
   reservaId: string
   usuarioId: string
-  accion: string
-  fecha: string
-  detalles?: string
-}
-
-export interface ListaEspera {
-  id: string
-  canchaId: string
-  usuarioId: string
-  fechaDeseada: string
-  horaInicio: string
-  horaFin: string
-  notificado: boolean
+  estadoAnterior: EstadoReserva | null
+  estadoNuevo: EstadoReserva
+  motivo: string | null
+  createdAt: string
 }
 
 export interface Reserva {
   id: string
   canchaId: string
-  usuarioId: string
-  fecha: string
-  horaInicio: string
-  horaFin: string
+  clienteId: string
+  fechaInicio: string
+  fechaFin: string
   estado: EstadoReserva
-  monto: number
-  notas?: string
+  codigoQr: string
+  esRecurrente: boolean
+  recurrenteId: string | null
+  notas: string | null
+  createdAt: string
+  updatedAt: string
   cancha?: Cancha
-  usuario?: Usuario
-  pago?: PagoReserva
-  auditoria?: AuditoriaReserva[]
+  cliente?: Usuario
+  pagos?: PagoReserva[]
 }
 
 export interface ReservaRecurrente {
   id: string
   canchaId: string
-  usuarioId: string
+  clienteId: string
   diaSemana: DiaSemana
   horaInicio: string
   horaFin: string
-  desde: string
-  hasta: string
+  fechaInicio: string
+  fechaFin: string | null
   activa: boolean
 }
 
-// ============================================================
-// Bebidas / snacks
-// ============================================================
+export interface ListaEspera {
+  id: string
+  canchaId: string
+  clienteId: string
+  fechaInicio: string
+  fechaFin: string
+  posicion: number
+}
 
+// ---------- Productos / Snacks ----------
 export interface Producto {
   id: string
   localId: string
+  categoriaId: string
   nombre: string
-  categoria: string
-  precio: number
+  precio: number | string
   stock: number
-  imagenUrl?: string
+  imagenUrl: string | null
   activo: boolean
+  categoria?: CategoriaProducto
 }
 
 export interface ItemPedidoSnack {
@@ -240,86 +316,99 @@ export interface ItemPedidoSnack {
   pedidoId: string
   productoId: string
   cantidad: number
-  precioUnitario: number
+  precioUnitario: number | string
+  subtotal: number | string
   producto?: Producto
 }
 
 export interface PedidoSnack {
   id: string
-  reservaId?: string
-  usuarioId: string
-  fecha: string
-  total: number
-  estado: 'PENDIENTE' | 'ENTREGADO' | 'CANCELADO'
+  reservaId: string
+  total: number | string
+  notas: string | null
   items?: ItemPedidoSnack[]
 }
 
 export interface VentaSnack {
   id: string
   pedidoId: string
-  productoId: string
-  cantidad: number
-  total: number
-  fecha: string
+  localId: string
+  operadorId: string
+  total: number | string
+  metodoPago: MetodoPago
+  estado: EstadoVenta
+  referencia: string | null
+  fechaVenta: string
 }
 
-// ============================================================
-// Reseñas
-// ============================================================
-
-export interface Reseña {
+// ---------- Reseñas / Notificaciones / Planes ----------
+export interface Resena {
   id: string
-  canchaId: string
-  usuarioId: string
-  puntuacion: number
-  comentario?: string
-  fecha: string
-  usuario?: Usuario
-  respuesta?: RespuestaReseña
+  reservaId: string
+  clienteId: string
+  canchaId: string | null
+  tipoObjetivo: TipoResenaObjetivo
+  rating: number
+  comentario: string | null
+  createdAt: string
+  cliente?: Usuario
 }
 
-export interface RespuestaReseña {
+export interface RespuestaResena {
   id: string
-  reseñaId: string
-  texto: string
-  fecha: string
+  resenaId: string
+  empresaId: string
+  contenido: string
+  createdAt: string
 }
-
-// ============================================================
-// Notificaciones
-// ============================================================
 
 export interface Notificacion {
   id: string
   usuarioId: string
   tipo: TipoNotificacion
   evento: EventoNotificacion
+  estado: EstadoNotificacion
   titulo: string
   mensaje: string
-  estado: EstadoNotificacion
-  fecha: string
-  leidaEn?: string
+  fechaEnvio: string | null
+  errorMsg: string | null
+  createdAt: string
 }
 
 export interface PushToken {
   id: string
   usuarioId: string
   token: string
-  dispositivo: string
+  plataforma: PlataformaPush
   activo: boolean
 }
 
-// ============================================================
-// Suscripciones / planes
-// ============================================================
-
 export interface Plan {
   id: string
-  nombre: PlanNombre
-  precioMensual: number
-  caracteristicas: string[]
-  maxCanchas: number
+  codigo: TipoPlan
+  nombre: string
+  descripcion: string | null
+  precioMensual: number | string
   maxLocales: number
+  maxCanchas: number
+  maxUsuarios: number
+  activo: boolean
+}
+
+// ---------- Módulos (sidebar dinámico) ----------
+export interface ModuloNodo {
+  id: string
+  codigo: string
+  nombre: string
+  descripcion: string | null
+  icono: string | null
+  ruta: string | null
+  orden: number
+  visibleWeb: boolean
+  visibleMovil: boolean
+  activo: boolean
+  parentId: string | null
+  hijos: ModuloNodo[]
 }
 
 export interface Suscripcion {
@@ -327,7 +416,30 @@ export interface Suscripcion {
   empresaId: string
   planId: string
   estado: EstadoSuscripcion
-  inicio: string
-  fin: string
+  fechaInicio: string
+  fechaVencimiento: string
+  renovacionAutomatica: boolean
   plan?: Plan
+}
+
+// ---------- Helpers de paginación ----------
+// El backend devuelve { data, meta: { page, limit, total, totalPages } }.
+export interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export interface Paginated<T> {
+  data: T[]
+  meta: PaginationMeta
+}
+
+export interface PaginationQuery {
+  page?: number
+  limit?: number
+  search?: string
+  sortBy?: string
+  order?: 'asc' | 'desc'
 }

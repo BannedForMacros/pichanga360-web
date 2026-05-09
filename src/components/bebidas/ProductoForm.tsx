@@ -13,26 +13,28 @@ import {
   useCrearProducto,
   useEditarProducto,
 } from '@/hooks/bebidas/useProductosMutaciones'
+import { useCategoriasProducto } from '@/hooks/catalogos/useCategoriasProducto'
 import type { Producto } from '@/types'
 
 interface ProductoFormProps {
   producto?: Producto
+  localId?: string
   onSuccess?: () => void
   onCancel?: () => void
 }
 
-const categorias = [
-  { label: 'Bebida', value: 'BEBIDA' },
-  { label: 'Snack', value: 'SNACK' },
-  { label: 'Hidratante', value: 'HIDRATANTE' },
-  { label: 'Comida', value: 'COMIDA' },
-  { label: 'Otro', value: 'OTRO' },
-]
-
-export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProps) {
+export function ProductoForm({
+  producto,
+  localId,
+  onSuccess,
+  onCancel,
+}: ProductoFormProps) {
   const isEdit = !!producto
-  const crear = useCrearProducto()
+  const crear = useCrearProducto(localId ?? producto?.localId)
   const editar = useEditarProducto()
+
+  const { data: categorias, isLoading: loadingCategorias } =
+    useCategoriasProducto()
 
   const {
     register,
@@ -43,8 +45,8 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
     resolver: zodResolver(productoSchema),
     defaultValues: {
       nombre: producto?.nombre ?? '',
-      categoria: producto?.categoria ?? 'BEBIDA',
-      precio: producto?.precio ?? 0,
+      categoriaId: producto?.categoriaId ?? '',
+      precio: producto?.precio ? Number(producto.precio) : 0,
       stock: producto?.stock ?? 0,
       imagenUrl: producto?.imagenUrl ?? '',
       activo: producto?.activo ?? true,
@@ -52,10 +54,19 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
   })
 
   const onSubmit = handleSubmit(async (data) => {
+    const payload = {
+      nombre: data.nombre,
+      categoriaId: data.categoriaId,
+      precio: data.precio,
+      imagenUrl: data.imagenUrl || undefined,
+    }
     if (isEdit) {
-      await editar.mutateAsync({ id: producto!.id, data })
+      await editar.mutateAsync({
+        id: producto!.id,
+        data: { ...payload, activo: data.activo },
+      })
     } else {
-      await crear.mutateAsync(data)
+      await crear.mutateAsync({ ...payload, stock: data.stock })
     }
     onSuccess?.()
   })
@@ -70,20 +81,26 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
         {...register('nombre')}
         error={errors.nombre?.message}
       />
+
       <Controller
-        name="categoria"
+        name="categoriaId"
         control={control}
         render={({ field, fieldState }) => (
           <SearchableSelect
             label="Categoría"
-            options={categorias}
+            options={
+              categorias?.map((c) => ({ label: c.nombre, value: c.id })) ?? []
+            }
             value={field.value}
             onChange={field.onChange}
+            loading={loadingCategorias}
             error={fieldState.error?.message}
             placeholder="Selecciona una categoría"
+            emptyText="Crea categorías en el panel de configuración"
           />
         )}
       />
+
       <div className="grid gap-4 md:grid-cols-2">
         <Input
           type="number"
@@ -97,22 +114,33 @@ export function ProductoForm({ producto, onSuccess, onCancel }: ProductoFormProp
           label="Stock"
           {...register('stock', { valueAsNumber: true })}
           error={errors.stock?.message}
+          disabled={isEdit}
+          hint={
+            isEdit
+              ? 'Para ajustar stock, usa la opción "Ajustar stock" en la tabla'
+              : undefined
+          }
         />
       </div>
+
       <Input
         label="URL de la imagen"
         placeholder="https://..."
         {...register('imagenUrl')}
         error={errors.imagenUrl?.message}
       />
-      <label className="flex items-center gap-2 text-sm text-dark">
-        <input
-          type="checkbox"
-          {...register('activo')}
-          className="accent-primary"
-        />
-        Producto activo
-      </label>
+
+      {isEdit && (
+        <label className="flex items-center gap-2 text-sm text-dark">
+          <input
+            type="checkbox"
+            {...register('activo')}
+            className="accent-primary"
+          />
+          Producto activo
+        </label>
+      )}
+
       <div className="flex items-center justify-end gap-2 pt-2">
         {onCancel && (
           <Button variant="ghost" onClick={onCancel} type="button">

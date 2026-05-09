@@ -2,62 +2,27 @@
 
 import { useState } from 'react'
 import { Header } from '@/components/dashboard/Header'
+import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
+import { Spinner } from '@/components/ui/Spinner'
 import { CanchaForm } from '@/components/canchas/CanchaForm'
 import { CanchaTable } from '@/components/canchas/CanchaTable'
+import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
 import { useEliminarCancha } from '@/hooks/canchas/useCanchasMutations'
+import { useLocalActual } from '@/hooks/auth/useLocalActual'
 import type { Cancha } from '@/types'
 
-const canchasMock: Cancha[] = [
-  {
-    id: 'c-1',
-    localId: 'l-1',
-    nombre: 'Cancha 1 — La Bombonera',
-    deporte: 'FUTBOL',
-    superficie: 'GRASS',
-    capacidadJugadores: 22,
-    descripcion: 'Cancha grande, grass natural.',
-    estado: 'ACTIVA',
-    precioPorHora: 120,
-  },
-  {
-    id: 'c-2',
-    localId: 'l-1',
-    nombre: 'Cancha 2 — Sintética',
-    deporte: 'FUTBOL',
-    superficie: 'SINTETICO',
-    capacidadJugadores: 14,
-    estado: 'ACTIVA',
-    precioPorHora: 90,
-  },
-  {
-    id: 'c-3',
-    localId: 'l-1',
-    nombre: 'Cancha 3 — Vóley',
-    deporte: 'VOLEY',
-    superficie: 'CEMENTO',
-    capacidadJugadores: 12,
-    estado: 'MANTENIMIENTO',
-    precioPorHora: 70,
-  },
-  {
-    id: 'c-4',
-    localId: 'l-1',
-    nombre: 'Cancha 4 — Básquet',
-    deporte: 'BASKET',
-    superficie: 'CEMENTO',
-    capacidadJugadores: 10,
-    estado: 'ACTIVA',
-    precioPorHora: 80,
-  },
-]
-
 export default function CanchasPage() {
+  const { open: openMenu } = useDashboardMenu()
+  const { localId, isLoading: loadingLocal } = useLocalActual()
+
   const [editing, setEditing] = useState<Cancha | undefined>()
   const [open, setOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [target, setTarget] = useState<Cancha | null>(null)
+
+  const { data: canchas, isLoading } = useCanchasByLocal(localId ?? undefined)
   const eliminar = useEliminarCancha()
 
   const onCreate = () => {
@@ -86,13 +51,22 @@ export default function CanchasPage() {
         breadcrumb={[{ label: 'Operación' }, { label: 'Canchas' }]}
         onNew={onCreate}
         newLabel="+ Nueva cancha"
+        onOpenMenu={openMenu}
       />
-      <div className="p-6">
-        <CanchaTable
-          canchas={canchasMock}
-          onEdit={onEdit}
-          onDelete={onDeleteAsk}
-        />
+      <div className="p-4 sm:p-6">
+        {loadingLocal || isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="lg" />
+          </div>
+        ) : !localId ? (
+          <EmptyLocal />
+        ) : (
+          <CanchaTable
+            canchas={canchas ?? []}
+            onEdit={onEdit}
+            onDelete={onDeleteAsk}
+          />
+        )}
       </div>
 
       <Modal
@@ -104,6 +78,7 @@ export default function CanchasPage() {
       >
         <CanchaForm
           cancha={editing}
+          localId={localId ?? undefined}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />
@@ -127,5 +102,19 @@ export default function CanchasPage() {
         }}
       />
     </>
+  )
+}
+
+function EmptyLocal() {
+  return (
+    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+      <p className="text-base font-semibold text-dark">
+        Aún no tienes un local registrado
+      </p>
+      <p className="mt-1 text-sm text-gray-600">
+        Para gestionar canchas necesitas primero crear un local desde
+        Configuración.
+      </p>
+    </div>
   )
 }

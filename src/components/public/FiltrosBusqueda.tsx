@@ -45,8 +45,8 @@ export function FiltrosBusqueda() {
   }
 
   return (
-    <aside className="sticky top-20 h-fit w-[220px] shrink-0 rounded-2xl border border-gray-200 bg-white p-4">
-      <h3 className="mb-4 text-sm font-semibold text-dark">Filtros</h3>
+    <aside className="rounded-2xl border border-gray-200 bg-white p-4 lg:sticky lg:top-20">
+      <h3 className="mb-4 hidden text-sm font-semibold text-dark lg:block">Filtros</h3>
 
       <section>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">

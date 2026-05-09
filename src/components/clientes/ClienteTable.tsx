@@ -3,22 +3,23 @@
 import { Mail, Phone } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { formatDate } from '@/lib/utils'
 import type { Usuario } from '@/types'
 
 interface Props {
-  clientes: (Usuario & { totalReservas?: number; totalGastado?: number })[]
+  clientes: Usuario[]
 }
 
 export function ClienteTable({ clientes }: Props) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
           <tr>
             <th className="px-4 py-3">Cliente</th>
             <th className="px-4 py-3">Contacto</th>
-            <th className="px-4 py-3">Reservas</th>
-            <th className="px-4 py-3">Gasto total</th>
+            <th className="px-4 py-3">Registrado</th>
+            <th className="px-4 py-3">Email</th>
             <th className="px-4 py-3">Estado</th>
           </tr>
         </thead>
@@ -40,7 +41,7 @@ export function ClienteTable({ clientes }: Props) {
                         {c.nombre} {c.apellido}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Cliente desde {new Date(c.fechaCreacion).toLocaleDateString('es-PE')}
+                        ID: {c.id.slice(0, 8)}...
                       </p>
                     </div>
                   </div>
@@ -57,11 +58,13 @@ export function ClienteTable({ clientes }: Props) {
                     </p>
                   )}
                 </td>
-                <td className="px-4 py-3 font-semibold text-dark">
-                  {c.totalReservas ?? 0}
+                <td className="px-4 py-3 text-gray-700">
+                  {formatDate(c.createdAt)}
                 </td>
-                <td className="px-4 py-3 font-semibold text-primary">
-                  S/ {(c.totalGastado ?? 0).toFixed(2)}
+                <td className="px-4 py-3">
+                  <Badge variant={c.emailVerificado ? 'success' : 'warning'}>
+                    {c.emailVerificado ? 'Verificado' : 'Sin verificar'}
+                  </Badge>
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={c.activo ? 'success' : 'neutral'}>

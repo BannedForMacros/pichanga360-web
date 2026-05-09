@@ -1,176 +1,144 @@
+'use client'
+
+import { useMemo } from 'react'
 import { CalendarDays, Wallet, Goal, BarChart3 } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
+import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { MetricCard } from '@/components/dashboard/MetricCard'
-import {
-  CalendarioSemanal,
-  type FilaCancha,
-} from '@/components/reservas/CalendarioSemanal'
-import { TablaReservas, type ReservaRow } from '@/components/reservas/TablaReservas'
+import { TablaReservas } from '@/components/reservas/TablaReservas'
+import { Spinner } from '@/components/ui/Spinner'
+import { useReservas } from '@/hooks/reservas/useReservas'
+import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
+import { useLocalActual } from '@/hooks/auth/useLocalActual'
+import { useUsuarioActual } from '@/hooks/auth/useAuth'
+import type { Reserva } from '@/types'
 
-const filas: FilaCancha[] = [
-  {
-    canchaId: 'c-1',
-    canchaNombre: 'Cancha 1 — La Bombonera',
-    celdas: [
-      { estado: 'CONFIRMADO', cliente: 'Luis Quispe', monto: 120 },
-      { estado: 'LIBRE' },
-      { estado: 'PENDIENTE', cliente: 'María Vargas' },
-      { estado: 'CONFIRMADO', cliente: 'Carlos Ramírez', monto: 120 },
-      { estado: 'CONFIRMADO', cliente: 'Equipo Real Lima', monto: 120 },
-      { estado: 'PENDIENTE', cliente: 'Diego Chávez' },
-      { estado: 'LIBRE' },
-    ],
-  },
-  {
-    canchaId: 'c-2',
-    canchaNombre: 'Cancha 2 — Sintética',
-    celdas: [
-      { estado: 'LIBRE' },
-      { estado: 'CONFIRMADO', cliente: 'Andrea Tello', monto: 90 },
-      { estado: 'CONFIRMADO', cliente: 'Pichangueros FC', monto: 90 },
-      { estado: 'LIBRE' },
-      { estado: 'CONFIRMADO', cliente: 'Gabriela Soto', monto: 90 },
-      { estado: 'CONFIRMADO', cliente: 'Equipo San Borja', monto: 90 },
-      { estado: 'PENDIENTE', cliente: 'Renato Lazo' },
-    ],
-  },
-  {
-    canchaId: 'c-3',
-    canchaNombre: 'Cancha 3 — Vóley',
-    celdas: [
-      { estado: 'CONFIRMADO', cliente: 'Vóley San Isidro', monto: 70 },
-      { estado: 'CONFIRMADO', cliente: 'Academia Olimpia', monto: 70 },
-      { estado: 'LIBRE' },
-      { estado: 'PENDIENTE', cliente: 'Camila Ríos' },
-      { estado: 'LIBRE' },
-      { estado: 'CONFIRMADO', cliente: 'Rocío Mendoza', monto: 70 },
-      { estado: 'CONFIRMADO', cliente: 'Equipo Magdalena', monto: 70 },
-    ],
-  },
-  {
-    canchaId: 'c-4',
-    canchaNombre: 'Cancha 4 — Básquet',
-    celdas: [
-      { estado: 'PENDIENTE', cliente: 'Universidad SMP' },
-      { estado: 'LIBRE' },
-      { estado: 'CONFIRMADO', cliente: 'Sebastián Vega', monto: 80 },
-      { estado: 'CONFIRMADO', cliente: 'Alianza Hoops', monto: 80 },
-      { estado: 'LIBRE' },
-      { estado: 'CONFIRMADO', cliente: 'Diego Otoya', monto: 80 },
-      { estado: 'LIBRE' },
-    ],
-  },
-]
+function isMismaDia(iso: string, ref: Date) {
+  const d = new Date(iso)
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  )
+}
 
-const reservas: ReservaRow[] = [
-  {
-    id: 'r-1',
-    clienteNombre: 'Luis Quispe',
-    clienteEmail: 'luis.quispe@gmail.com',
-    cancha: 'Cancha 1 — La Bombonera',
-    fecha: '21 abr 2026',
-    horario: '19:00 — 20:00',
-    monto: 120,
-    estado: 'CONFIRMADA',
-  },
-  {
-    id: 'r-2',
-    clienteNombre: 'María Vargas',
-    clienteEmail: 'maria.vargas@hotmail.com',
-    cancha: 'Cancha 1 — La Bombonera',
-    fecha: '23 abr 2026',
-    horario: '20:00 — 21:00',
-    monto: 120,
-    estado: 'PENDIENTE',
-  },
-  {
-    id: 'r-3',
-    clienteNombre: 'Andrea Tello',
-    clienteEmail: 'andrea.tello@outlook.com',
-    cancha: 'Cancha 2 — Sintética',
-    fecha: '22 abr 2026',
-    horario: '21:00 — 22:00',
-    monto: 90,
-    estado: 'CONFIRMADA',
-  },
-  {
-    id: 'r-4',
-    clienteNombre: 'Sebastián Vega',
-    clienteEmail: 'svega@gmail.com',
-    cancha: 'Cancha 4 — Básquet',
-    fecha: '23 abr 2026',
-    horario: '18:00 — 19:00',
-    monto: 80,
-    estado: 'CONFIRMADA',
-  },
-  {
-    id: 'r-5',
-    clienteNombre: 'Diego Chávez',
-    clienteEmail: 'diego.chavez@gmail.com',
-    cancha: 'Cancha 1 — La Bombonera',
-    fecha: '26 abr 2026',
-    horario: '20:00 — 21:00',
-    monto: 120,
-    estado: 'PENDIENTE',
-  },
-]
+function isMismoMes(iso: string, ref: Date) {
+  const d = new Date(iso)
+  return (
+    d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth()
+  )
+}
 
 export default function DashboardPage() {
+  const { open } = useDashboardMenu()
+  const { data: me } = useUsuarioActual()
+  const { localId } = useLocalActual()
+
+  const { data: reservasResp, isLoading } = useReservas({
+    localId: localId ?? undefined,
+    limit: 100,
+  })
+  const { data: canchas } = useCanchasByLocal(localId ?? undefined)
+
+  const reservas: Reserva[] = reservasResp?.data ?? []
+
+  const stats = useMemo(() => {
+    const hoy = new Date()
+    const reservasHoy = reservas.filter(
+      (r) => isMismaDia(r.fechaInicio, hoy) && r.estado !== 'CANCELADA'
+    ).length
+
+    const mes = reservas.filter(
+      (r) => isMismoMes(r.fechaInicio, hoy) && r.estado !== 'CANCELADA'
+    )
+    const ingresosMes = mes.reduce((acc, r) => {
+      const m = r.pagos?.reduce((a, p) => a + Number(p.monto ?? 0), 0) ?? 0
+      return acc + m
+    }, 0)
+
+    const totalCanchas = canchas?.length ?? 0
+    const activas = canchas?.filter((c) => c.estado === 'ACTIVA').length ?? 0
+
+    const ocupacion =
+      totalCanchas > 0
+        ? Math.round(
+            (reservasHoy / Math.max(totalCanchas * 12, 1)) * 100
+          )
+        : 0
+
+    return { reservasHoy, ingresosMes, activas, totalCanchas, ocupacion }
+  }, [reservas, canchas])
+
+  const recientes = useMemo(
+    () =>
+      [...reservas]
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .slice(0, 10),
+    [reservas]
+  )
+
+  const nombre = me?.user?.nombre ?? ''
+
   return (
     <>
       <Header
         title="Dashboard"
         breadcrumb={[
-          { label: 'Hola, Roberto' },
-          { label: 'Sport Center San Isidro' },
+          { label: nombre ? `Hola, ${nombre}` : 'Hola' },
+          { label: 'Resumen general' },
         ]}
         range="Esta semana"
-        onNew={() => {}}
-        newLabel="+ Nueva reserva"
+        onOpenMenu={open}
       />
-      <div className="flex flex-col gap-6 p-6">
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Reservas hoy"
-            value="18"
-            subtitle="vs ayer (16)"
-            trend={12}
-            icon={<CalendarDays size={18} />}
-            color="primary"
-            series={[5, 7, 6, 8, 12, 14, 18]}
-          />
-          <MetricCard
-            title="Ingresos del mes"
-            value="S/ 14,820"
-            subtitle="vs mes anterior"
-            trend={12}
-            icon={<Wallet size={18} />}
-            color="success"
-            series={[3, 4, 5, 6, 8, 10, 14]}
-          />
-          <MetricCard
-            title="Canchas activas"
-            value="4 / 4"
-            subtitle="todas operando"
-            trend={0}
-            icon={<Goal size={18} />}
-            color="primary"
-            series={[4, 4, 4, 4, 4, 4, 4]}
-          />
-          <MetricCard
-            title="Ocupación"
-            value="78%"
-            subtitle="vs semana anterior"
-            trend={6}
-            icon={<BarChart3 size={18} />}
-            color="warning"
-            series={[60, 64, 68, 71, 73, 75, 78]}
-          />
-        </section>
+      <div className="flex flex-col gap-6 p-4 sm:p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <>
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                title="Reservas hoy"
+                value={String(stats.reservasHoy)}
+                subtitle="confirmadas + pendientes"
+                icon={<CalendarDays size={18} />}
+                color="primary"
+              />
+              <MetricCard
+                title="Ingresos del mes"
+                value={
+                  stats.ingresosMes > 0
+                    ? `S/ ${stats.ingresosMes.toFixed(2)}`
+                    : 'S/ 0.00'
+                }
+                subtitle="basado en pagos registrados"
+                icon={<Wallet size={18} />}
+                color="success"
+              />
+              <MetricCard
+                title="Canchas activas"
+                value={`${stats.activas} / ${stats.totalCanchas}`}
+                subtitle={
+                  stats.totalCanchas > 0
+                    ? 'operando ahora'
+                    : 'sin canchas registradas'
+                }
+                icon={<Goal size={18} />}
+                color="primary"
+              />
+              <MetricCard
+                title="Ocupación estimada"
+                value={`${stats.ocupacion}%`}
+                subtitle="reservas hoy / capacidad"
+                icon={<BarChart3 size={18} />}
+                color="warning"
+              />
+            </section>
 
-        <CalendarioSemanal filas={filas} />
-
-        <TablaReservas reservas={reservas} />
+            <TablaReservas reservas={recientes} />
+          </>
+        )}
       </div>
     </>
   )

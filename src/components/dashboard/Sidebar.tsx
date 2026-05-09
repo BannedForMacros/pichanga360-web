@@ -13,6 +13,7 @@ import {
   Settings,
   LifeBuoy,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -26,18 +27,9 @@ interface NavItem {
 }
 
 const principal: NavItem[] = [
-  {
-    label: 'Dashboard',
-    href: '/dashboard',
-    icon: <LayoutDashboard size={18} />,
-  },
+  { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
   { label: 'Mis Canchas', href: '/canchas', icon: <Goal size={18} />, badge: '4' },
-  {
-    label: 'Reservas',
-    href: '/reservas',
-    icon: <CalendarDays size={18} />,
-    badge: '12',
-  },
+  { label: 'Reservas', href: '/reservas', icon: <CalendarDays size={18} />, badge: '12' },
   { label: 'Horarios', href: '/horarios', icon: <Clock size={18} /> },
 ]
 
@@ -51,13 +43,15 @@ function Section({
   title,
   items,
   pathname,
+  onNavigate,
 }: {
   title: string
   items: NavItem[]
   pathname: string
+  onNavigate?: () => void
 }) {
   return (
-    <div className="mt-6 first:mt-0">
+    <div className="mt-5 first:mt-0">
       <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
         {title}
       </p>
@@ -68,6 +62,7 @@ function Section({
             <li key={item.href}>
               <Link
                 href={item.href}
+                onClick={onNavigate}
                 className={cn(
                   'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition',
                   active
@@ -97,33 +92,61 @@ function Section({
   )
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean
+  onClose?: () => void
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname()
 
-  return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white p-4 lg:flex">
-      <Link href="/" className="flex items-center gap-2 px-2 py-1">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white">
-          <span className="text-base font-black">P</span>
-        </span>
-        <span className="text-base font-extrabold tracking-tight text-primary">
-          Pichanga<span className="text-warning">360</span>
-        </span>
-      </Link>
+  const content = (
+    <>
+      <div className="flex items-center justify-between px-2">
+        <Link href="/" className="flex items-center gap-2 py-1">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white">
+            <span className="text-base font-black">P</span>
+          </span>
+          <span className="text-base font-extrabold tracking-tight text-primary">
+            Pichanga<span className="text-warning">360</span>
+          </span>
+        </Link>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 lg:hidden"
+            aria-label="Cerrar menú"
+          >
+            <X size={18} />
+          </button>
+        )}
+      </div>
 
       <button className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm hover:border-primary">
-        <span>
+        <span className="min-w-0">
           <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Local
           </span>
-          <span className="block font-semibold text-dark">Sport Center San Isidro</span>
+          <span className="block truncate font-semibold text-dark">
+            Sport Center San Isidro
+          </span>
         </span>
-        <ChevronDown size={16} className="text-gray-400" />
+        <ChevronDown size={16} className="shrink-0 text-gray-400" />
       </button>
 
-      <nav className="mt-2 flex-1 overflow-y-auto">
-        <Section title="Principal" items={principal} pathname={pathname} />
-        <Section title="Operación" items={operacion} pathname={pathname} />
+      <nav className="mt-2 flex-1 overflow-y-auto pr-1">
+        <Section
+          title="Principal"
+          items={principal}
+          pathname={pathname}
+          onNavigate={onClose}
+        />
+        <Section
+          title="Operación"
+          items={operacion}
+          pathname={pathname}
+          onNavigate={onClose}
+        />
       </nav>
 
       <div className="mt-4 space-y-2">
@@ -151,6 +174,34 @@ export function Sidebar() {
           </Button>
         </div>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Desktop */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white p-4 lg:flex">
+        {content}
+      </aside>
+
+      {/* Mobile drawer */}
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-dark/50 backdrop-blur-sm transition-opacity lg:hidden',
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        )}
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-gray-200 bg-white p-4 shadow-2xl transition-transform lg:hidden',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+        aria-hidden={!isOpen}
+      >
+        {content}
+      </aside>
+    </>
   )
 }

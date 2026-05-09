@@ -14,8 +14,8 @@ interface Props {
 
 export function ProductoTable({ productos, onEdit, onDelete }: Props) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
           <tr>
             <th className="px-4 py-3">Producto</th>
@@ -37,12 +37,18 @@ export function ProductoTable({ productos, onEdit, onDelete }: Props) {
             productos.map((p) => (
               <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-3 font-semibold text-dark">{p.nombre}</td>
-                <td className="px-4 py-3 text-gray-700">{p.categoria}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {p.categoria?.nombre ?? '—'}
+                </td>
                 <td className="px-4 py-3 font-semibold text-primary">
-                  {formatCurrency(p.precio)}
+                  {formatCurrency(Number(p.precio))}
                 </td>
                 <td className="px-4 py-3">
-                  <Badge variant={p.stock > 5 ? 'success' : p.stock > 0 ? 'warning' : 'danger'}>
+                  <Badge
+                    variant={
+                      p.stock > 5 ? 'success' : p.stock > 0 ? 'warning' : 'danger'
+                    }
+                  >
                     {p.stock}
                   </Badge>
                 </td>

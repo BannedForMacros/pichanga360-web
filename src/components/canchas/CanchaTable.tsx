@@ -23,8 +23,8 @@ const estadoVariant: Record<
 
 export function CanchaTable({ canchas, onEdit, onDelete }: Props) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
           <tr>
             <th className="px-4 py-3">Cancha</th>
@@ -46,19 +46,25 @@ export function CanchaTable({ canchas, onEdit, onDelete }: Props) {
           ) : (
             canchas.map((c) => {
               const estado = estadoVariant[c.estado]
+              const precios = (c.tarifas ?? []).map((t) => Number(t.precioHora))
+              const minPrecio = precios.length ? Math.min(...precios) : 0
               return (
                 <tr
                   key={c.id}
                   className="border-t border-gray-100 hover:bg-gray-50"
                 >
                   <td className="px-4 py-3 font-semibold text-dark">{c.nombre}</td>
-                  <td className="px-4 py-3 text-gray-700">{c.deporte}</td>
-                  <td className="px-4 py-3 text-gray-700">{c.superficie}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {c.tipoCancha?.deporte?.nombre ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {c.superficie?.nombre ?? '—'}
+                  </td>
                   <td className="px-4 py-3 text-gray-700">
                     {c.capacidadJugadores}
                   </td>
                   <td className="px-4 py-3 font-semibold text-primary">
-                    {formatCurrency(c.precioPorHora)}
+                    {minPrecio > 0 ? formatCurrency(minPrecio) : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={estado.variant}>{estado.label}</Badge>

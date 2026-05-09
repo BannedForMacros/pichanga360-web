@@ -1,8 +1,8 @@
-import type { Deporte, Superficie } from '@/types'
+import type { DeporteCodigo, SuperficieCodigo } from '@/types'
 
 interface Props {
-  deporte: Deporte
-  superficie: Superficie
+  deporte: DeporteCodigo
+  superficie: SuperficieCodigo
   className?: string
 }
 
@@ -18,7 +18,7 @@ const palette: Record<string, { bg: string; line: string; accent: string }> = {
   PADEL_SINTETICO: { bg: '#1F8A4F', line: '#FFFFFF', accent: '#3CB371' },
 }
 
-function pickColors(deporte: Deporte, superficie: Superficie) {
+function pickColors(deporte: DeporteCodigo, superficie: SuperficieCodigo) {
   const key = `${deporte}_${superficie}`
   if (palette[key]) return palette[key]
   if (deporte === 'FUTBOL') return palette.FUTBOL_GRASS

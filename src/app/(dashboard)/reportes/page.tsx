@@ -15,6 +15,7 @@ import {
 } from 'recharts'
 import { Wallet, TrendingUp, Goal } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
+import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Card } from '@/components/ui/Card'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 
@@ -38,13 +39,15 @@ const ocupacion = [
 const colors = ['#1B3F72', '#F5A623', '#00A86B', '#7C3AED']
 
 export default function ReportesPage() {
+  const { open } = useDashboardMenu()
   return (
     <>
       <Header
         title="Reportes"
         breadcrumb={[{ label: 'Operación' }, { label: 'Reportes' }]}
+        onOpenMenu={open}
       />
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-6 p-4 sm:p-6">
         <section className="grid gap-4 md:grid-cols-3">
           <MetricCard
             title="Ingresos esta semana"

@@ -3,14 +3,14 @@ import { MapPin, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/utils'
-import type { Deporte, Superficie } from '@/types'
+import type { DeporteCodigo, SuperficieCodigo } from '@/types'
 import { CanchaSVG } from './CanchaSVG'
 
 export interface CanchaCardData {
   id: string
   nombre: string
-  deporte: Deporte
-  superficie: Superficie
+  deporte: DeporteCodigo
+  superficie: SuperficieCodigo
   distrito: string
   precioPorHora: number
   rating?: number
@@ -18,7 +18,7 @@ export interface CanchaCardData {
   disponibilidad?: string
 }
 
-const deporteLabel: Record<Deporte, string> = {
+const deporteLabel: Record<DeporteCodigo, string> = {
   FUTBOL: 'Fútbol',
   VOLEY: 'Vóley',
   BASKET: 'Básquet',

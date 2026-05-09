@@ -29,18 +29,18 @@ export function HeroSearch() {
   return (
     <form
       onSubmit={onSubmit}
-      className="grid w-full max-w-4xl grid-cols-1 gap-2 rounded-2xl bg-white p-2 shadow-2xl md:grid-cols-[1.2fr_1fr_1fr_auto]"
+      className="grid w-full max-w-4xl grid-cols-1 gap-2 rounded-2xl bg-white p-2 shadow-2xl sm:grid-cols-2 md:grid-cols-[1.2fr_1fr_1fr_auto]"
     >
-      <label className="flex items-center gap-3 rounded-xl px-4 hover:bg-gray-50">
-        <MapPin size={20} className="text-primary" />
-        <div className="flex flex-1 flex-col py-2 text-left">
+      <label className="flex items-center gap-3 rounded-xl px-3 py-1.5 text-left hover:bg-gray-50">
+        <MapPin size={18} className="shrink-0 text-primary" />
+        <div className="flex flex-1 flex-col">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Ciudad
           </span>
           <select
             value={ciudad}
             onChange={(e) => setCiudad(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-dark focus:outline-none"
+            className="w-full bg-transparent text-sm font-semibold text-dark focus:outline-none"
           >
             {ciudades.map((c) => (
               <option key={c} value={c}>
@@ -51,16 +51,16 @@ export function HeroSearch() {
         </div>
       </label>
 
-      <label className="flex items-center gap-3 rounded-xl px-4 hover:bg-gray-50">
-        <span className="text-xl">⚽</span>
-        <div className="flex flex-1 flex-col py-2 text-left">
+      <label className="flex items-center gap-3 rounded-xl px-3 py-1.5 text-left hover:bg-gray-50">
+        <span className="shrink-0 text-lg">⚽</span>
+        <div className="flex flex-1 flex-col">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Deporte
           </span>
           <select
             value={deporte}
             onChange={(e) => setDeporte(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-dark focus:outline-none"
+            className="w-full bg-transparent text-sm font-semibold text-dark focus:outline-none"
           >
             {deportes.map((d) => (
               <option key={d.value} value={d.value}>
@@ -71,9 +71,9 @@ export function HeroSearch() {
         </div>
       </label>
 
-      <label className="flex items-center gap-3 rounded-xl px-4 hover:bg-gray-50">
-        <CalendarDays size={20} className="text-primary" />
-        <div className="flex flex-1 flex-col py-2 text-left">
+      <label className="flex items-center gap-3 rounded-xl px-3 py-1.5 text-left hover:bg-gray-50 sm:col-span-2 md:col-span-1">
+        <CalendarDays size={18} className="shrink-0 text-primary" />
+        <div className="flex flex-1 flex-col">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             Fecha
           </span>
@@ -81,7 +81,7 @@ export function HeroSearch() {
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-dark focus:outline-none"
+            className="w-full bg-transparent text-sm font-semibold text-dark focus:outline-none"
           />
         </div>
       </label>
@@ -90,7 +90,7 @@ export function HeroSearch() {
         type="submit"
         variant="warning"
         size="lg"
-        className="rounded-xl px-6"
+        className="sm:col-span-2 md:col-span-1"
         leftIcon={<Search size={18} />}
       >
         Buscar cancha

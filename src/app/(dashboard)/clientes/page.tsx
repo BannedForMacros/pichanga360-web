@@ -1,73 +1,64 @@
-import { Header } from '@/components/dashboard/Header'
-import { ClienteTable } from '@/components/clientes/ClienteTable'
-import type { Usuario } from '@/types'
+'use client'
 
-const clientes: (Usuario & { totalReservas?: number; totalGastado?: number })[] = [
-  {
-    id: 'u-1',
-    nombre: 'Luis',
-    apellido: 'Quispe',
-    email: 'luis.quispe@gmail.com',
-    telefono: '987654321',
-    fechaCreacion: '2025-09-12',
-    activo: true,
-    totalReservas: 32,
-    totalGastado: 3840,
-  },
-  {
-    id: 'u-2',
-    nombre: 'María',
-    apellido: 'Vargas',
-    email: 'maria.vargas@hotmail.com',
-    telefono: '912345678',
-    fechaCreacion: '2025-11-04',
-    activo: true,
-    totalReservas: 18,
-    totalGastado: 2160,
-  },
-  {
-    id: 'u-3',
-    nombre: 'Andrea',
-    apellido: 'Tello',
-    email: 'andrea.tello@outlook.com',
-    telefono: '923456789',
-    fechaCreacion: '2025-12-21',
-    activo: true,
-    totalReservas: 12,
-    totalGastado: 1080,
-  },
-  {
-    id: 'u-4',
-    nombre: 'Sebastián',
-    apellido: 'Vega',
-    email: 'svega@gmail.com',
-    telefono: '976543210',
-    fechaCreacion: '2026-01-15',
-    activo: true,
-    totalReservas: 9,
-    totalGastado: 720,
-  },
-  {
-    id: 'u-5',
-    nombre: 'Diego',
-    apellido: 'Chávez',
-    email: 'diego.chavez@gmail.com',
-    fechaCreacion: '2026-02-02',
-    activo: false,
-    totalReservas: 4,
-    totalGastado: 480,
-  },
-]
+import { useState } from 'react'
+import { Header } from '@/components/dashboard/Header'
+import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
+import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
+import { ClienteTable } from '@/components/clientes/ClienteTable'
+import { useClientes } from '@/hooks/clientes/useClientes'
 
 export default function ClientesPage() {
+  const { open } = useDashboardMenu()
+  const [page, setPage] = useState(1)
+  const limit = 20
+
+  const { data, isLoading } = useClientes({ page, limit })
+  const total = data?.meta?.total ?? 0
+  const totalPages = data?.meta?.totalPages ?? Math.max(1, Math.ceil(total / limit))
+
   return (
     <>
       <Header
         title="Clientes"
         breadcrumb={[{ label: 'Operación' }, { label: 'Clientes' }]}
+        onOpenMenu={open}
       />
-      <div className="p-6">
-        <ClienteTable clientes={clientes} />
+      <div className="p-4 sm:p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Spinner size="lg" />
+          </div>
+        ) : (
+          <>
+            <ClienteTable clientes={data?.data ?? []} />
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+                <span>
+                  Página {page} de {totalPages} · {total} clientes
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </>
   )

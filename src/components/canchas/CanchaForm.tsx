@@ -13,29 +13,16 @@ import {
   useCrearCancha,
   useEditarCancha,
 } from '@/hooks/canchas/useCanchasMutations'
+import { useSuperficies } from '@/hooks/catalogos/useSuperficies'
+import { useTiposCancha } from '@/hooks/catalogos/useTiposCancha'
 import type { Cancha } from '@/types'
 
 interface CanchaFormProps {
   cancha?: Cancha
+  localId?: string
   onSuccess?: () => void
   onCancel?: () => void
 }
-
-const deportes = [
-  { label: 'Fútbol', value: 'FUTBOL' },
-  { label: 'Vóley', value: 'VOLEY' },
-  { label: 'Básquet', value: 'BASKET' },
-  { label: 'Tenis', value: 'TENIS' },
-  { label: 'Pádel', value: 'PADEL' },
-  { label: 'Otro', value: 'OTRO' },
-]
-
-const superficies = [
-  { label: 'Sintético', value: 'SINTETICO' },
-  { label: 'Grass natural', value: 'GRASS' },
-  { label: 'Cemento', value: 'CEMENTO' },
-  { label: 'Madera', value: 'MADERA' },
-]
 
 const estados = [
   { label: 'Activa', value: 'ACTIVA' },
@@ -43,10 +30,18 @@ const estados = [
   { label: 'Mantenimiento', value: 'MANTENIMIENTO' },
 ]
 
-export function CanchaForm({ cancha, onSuccess, onCancel }: CanchaFormProps) {
+export function CanchaForm({
+  cancha,
+  localId,
+  onSuccess,
+  onCancel,
+}: CanchaFormProps) {
   const isEdit = !!cancha
-  const crear = useCrearCancha()
+  const crear = useCrearCancha(localId ?? cancha?.localId)
   const editar = useEditarCancha()
+
+  const { data: superficies, isLoading: loadingSuperficies } = useSuperficies()
+  const { data: tiposCancha, isLoading: loadingTipos } = useTiposCancha()
 
   const {
     register,
@@ -57,20 +52,29 @@ export function CanchaForm({ cancha, onSuccess, onCancel }: CanchaFormProps) {
     resolver: zodResolver(canchaSchema),
     defaultValues: {
       nombre: cancha?.nombre ?? '',
-      deporte: cancha?.deporte ?? 'FUTBOL',
-      superficie: cancha?.superficie ?? 'SINTETICO',
+      superficieId: cancha?.superficieId ?? '',
+      tipoCanchaId: cancha?.tipoCanchaId ?? '',
       capacidadJugadores: cancha?.capacidadJugadores ?? 10,
-      precioPorHora: cancha?.precioPorHora ?? 80,
-      descripcion: cancha?.descripcion ?? '',
+      fotos: cancha?.fotos ?? [],
       estado: cancha?.estado ?? 'ACTIVA',
     },
   })
 
   const onSubmit = handleSubmit(async (data) => {
+    const payload = {
+      nombre: data.nombre,
+      superficieId: data.superficieId,
+      tipoCanchaId: data.tipoCanchaId || undefined,
+      capacidadJugadores: data.capacidadJugadores,
+      fotos: data.fotos,
+    }
     if (isEdit) {
-      await editar.mutateAsync({ id: cancha!.id, data })
+      await editar.mutateAsync({
+        id: cancha!.id,
+        data: { ...payload, estado: data.estado },
+      })
     } else {
-      await crear.mutateAsync(data)
+      await crear.mutateAsync(payload)
     }
     onSuccess?.()
   })
@@ -81,79 +85,77 @@ export function CanchaForm({ cancha, onSuccess, onCancel }: CanchaFormProps) {
     <form onSubmit={onSubmit} className="space-y-4">
       <Input
         label="Nombre de la cancha"
-        placeholder="Cancha Fútbol 1"
+        placeholder="Cancha 1 — Fútbol 7"
         {...register('nombre')}
         error={errors.nombre?.message}
       />
-      <div className="grid gap-4 md:grid-cols-2">
-        <Controller
-          name="deporte"
-          control={control}
-          render={({ field, fieldState }) => (
-            <SearchableSelect
-              label="Deporte"
-              options={deportes}
-              value={field.value}
-              onChange={field.onChange}
-              error={fieldState.error?.message}
-              placeholder="Selecciona un deporte"
-            />
-          )}
-        />
-        <Controller
-          name="superficie"
-          control={control}
-          render={({ field, fieldState }) => (
-            <SearchableSelect
-              label="Superficie"
-              options={superficies}
-              value={field.value}
-              onChange={field.onChange}
-              error={fieldState.error?.message}
-              placeholder="Selecciona una superficie"
-            />
-          )}
-        />
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Input
-          type="number"
-          label="Capacidad de jugadores"
-          {...register('capacidadJugadores', { valueAsNumber: true })}
-          error={errors.capacidadJugadores?.message}
-        />
-        <Input
-          type="number"
-          step="0.10"
-          label="Precio por hora (S/)"
-          {...register('precioPorHora', { valueAsNumber: true })}
-          error={errors.precioPorHora?.message}
-        />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-dark">
-          Descripción
-        </label>
-        <textarea
-          rows={3}
-          {...register('descripcion')}
-          placeholder="Detalles adicionales (iluminación, vestuarios, etc.)"
-          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
+
       <Controller
-        name="estado"
+        name="superficieId"
         control={control}
         render={({ field, fieldState }) => (
           <SearchableSelect
-            label="Estado"
-            options={estados}
+            label="Superficie"
+            options={
+              superficies?.map((s) => ({ label: s.nombre, value: s.id })) ?? []
+            }
             value={field.value}
             onChange={field.onChange}
+            loading={loadingSuperficies}
             error={fieldState.error?.message}
+            placeholder="Selecciona una superficie"
+            emptyText="No hay superficies registradas"
           />
         )}
       />
+
+      <Controller
+        name="tipoCanchaId"
+        control={control}
+        render={({ field, fieldState }) => (
+          <SearchableSelect
+            label="Tipo de cancha (opcional)"
+            options={[
+              { label: 'Sin tipo predefinido', value: '' },
+              ...(tiposCancha?.map((t) => ({
+                label: t.deporte ? `${t.nombre} · ${t.deporte.nombre}` : t.nombre,
+                value: t.id,
+              })) ?? []),
+            ]}
+            value={field.value}
+            onChange={field.onChange}
+            loading={loadingTipos}
+            error={fieldState.error?.message}
+            placeholder="Hereda capacidad y deporte si seleccionas uno"
+            emptyText="No hay tipos de cancha en tu empresa"
+          />
+        )}
+      />
+
+      <Input
+        type="number"
+        label="Capacidad de jugadores"
+        {...register('capacidadJugadores', { valueAsNumber: true })}
+        error={errors.capacidadJugadores?.message}
+        hint="Si seleccionas un tipo de cancha, puede heredar este valor."
+      />
+
+      {isEdit && (
+        <Controller
+          name="estado"
+          control={control}
+          render={({ field, fieldState }) => (
+            <SearchableSelect
+              label="Estado"
+              options={estados}
+              value={field.value}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+      )}
+
       <div className="flex items-center justify-end gap-2 pt-2">
         {onCancel && (
           <Button variant="ghost" onClick={onCancel} type="button">

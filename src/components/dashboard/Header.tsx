@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Plus, ChevronRight } from 'lucide-react'
+import { Bell, Plus, ChevronRight, Menu } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 
@@ -10,6 +10,7 @@ interface HeaderProps {
   range?: string
   onNew?: () => void
   newLabel?: string
+  onOpenMenu?: () => void
 }
 
 export function Header({
@@ -18,28 +19,42 @@ export function Header({
   range = 'Esta semana',
   onNew,
   newLabel = '+ Nueva reserva',
+  onOpenMenu,
 }: HeaderProps) {
   return (
-    <header className="flex flex-col gap-4 border-b border-gray-200 bg-white px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        {breadcrumb.length > 0 && (
-          <nav className="flex flex-wrap items-center gap-1 text-xs text-gray-500">
-            {breadcrumb.map((b, i) => (
-              <span key={`${b.label}-${i}`} className="flex items-center gap-1">
-                {b.label}
-                {i < breadcrumb.length - 1 && <ChevronRight size={12} />}
-              </span>
-            ))}
-          </nav>
+    <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:px-6 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-center gap-3">
+        {onOpenMenu && (
+          <button
+            onClick={onOpenMenu}
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 lg:hidden"
+            aria-label="Abrir menú"
+          >
+            <Menu size={20} />
+          </button>
         )}
-        <h1 className="text-2xl font-bold tracking-tight text-dark">{title}</h1>
+        <div className="min-w-0">
+          {breadcrumb.length > 0 && (
+            <nav className="flex flex-wrap items-center gap-1 text-xs text-gray-500">
+              {breadcrumb.map((b, i) => (
+                <span key={`${b.label}-${i}`} className="flex items-center gap-1">
+                  <span className="truncate">{b.label}</span>
+                  {i < breadcrumb.length - 1 && <ChevronRight size={12} />}
+                </span>
+              ))}
+            </nav>
+          )}
+          <h1 className="truncate text-xl font-bold tracking-tight text-dark sm:text-2xl">
+            {title}
+          </h1>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary">
+        <button className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary md:inline-flex">
           {range}
         </button>
         {onNew && (
-          <Button variant="success" leftIcon={<Plus size={16} />} onClick={onNew}>
+          <Button variant="success" leftIcon={<Plus size={16} />} onClick={onNew} size="sm">
             {newLabel.replace('+ ', '')}
           </Button>
         )}
@@ -50,7 +65,7 @@ export function Header({
           <Bell size={18} />
           <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-warning" />
         </button>
-        <Avatar name="Roberto Cárdenas" />
+        <Avatar name="Roberto Cárdenas" size="sm" />
       </div>
     </header>
   )

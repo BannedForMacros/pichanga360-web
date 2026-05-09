@@ -1,27 +1,22 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import api from '@/lib/api'
+import api, { tokenStore } from '@/lib/api'
 import toast from 'react-hot-toast'
-import type { Usuario } from '@/types'
+import type { MeResponse, TokenResponse } from '@/types'
 import type { LoginFormData, RegistroFormData } from '@/validators/auth/auth.schema'
 
-interface AuthResponse {
-  token: string
-  usuario: Usuario
-}
-
 export function useUsuarioActual() {
-  return useQuery<Usuario | null>({
+  return useQuery<MeResponse | null>({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
       if (typeof window === 'undefined') return null
-      const token = localStorage.getItem('token')
-      if (!token) return null
-      const { data } = await api.get<Usuario>('/auth/me')
+      if (!tokenStore.getAccess()) return null
+      const { data } = await api.get<MeResponse>('/auth/me')
       return data
     },
     staleTime: 1000 * 60 * 10,
+    retry: false,
   })
 }
 
@@ -29,13 +24,13 @@ export function useLogin() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: LoginFormData) => {
-      const { data } = await api.post<AuthResponse>('/auth/login', input)
+      const { data } = await api.post<TokenResponse>('/auth/login', input)
       return data
     },
     onSuccess: (data) => {
-      if (typeof window !== 'undefined') localStorage.setItem('token', data.token)
-      queryClient.setQueryData(['auth', 'me'], data.usuario)
-      toast.success(`Bienvenido, ${data.usuario.nombre}`, { position: 'top-right' })
+      tokenStore.set(data.accessToken, data.refreshToken)
+      queryClient.setQueryData(['auth', 'me'], { user: data.user, roles: data.roles })
+      toast.success(`Bienvenido, ${data.user.nombre}`, { position: 'top-right' })
     },
   })
 }
@@ -44,12 +39,14 @@ export function useRegistro() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: RegistroFormData) => {
-      const { data } = await api.post<AuthResponse>('/auth/registro', input)
+      // Filtramos confirmarPassword: el backend rechaza props extras
+      const { confirmarPassword: _ignored, ...payload } = input
+      const { data } = await api.post<TokenResponse>('/auth/register', payload)
       return data
     },
     onSuccess: (data) => {
-      if (typeof window !== 'undefined') localStorage.setItem('token', data.token)
-      queryClient.setQueryData(['auth', 'me'], data.usuario)
+      tokenStore.set(data.accessToken, data.refreshToken)
+      queryClient.setQueryData(['auth', 'me'], { user: data.user, roles: data.roles })
       toast.success('¡Cuenta creada con éxito!', { position: 'top-right' })
     },
   })
@@ -57,10 +54,19 @@ export function useRegistro() {
 
 export function useLogout() {
   const queryClient = useQueryClient()
-  return () => {
-    if (typeof window !== 'undefined') localStorage.removeItem('token')
+  return async () => {
+    const refreshToken = tokenStore.getRefresh()
+    if (refreshToken) {
+      try {
+        await api.post('/auth/logout', { refreshToken })
+      } catch {
+        /* ignorar errores en logout */
+      }
+    }
+    tokenStore.clear()
     queryClient.setQueryData(['auth', 'me'], null)
     queryClient.clear()
     toast.success('Sesión cerrada', { position: 'top-right' })
+    if (typeof window !== 'undefined') window.location.href = '/login'
   }
 }

@@ -1,22 +1,26 @@
 import { z } from 'zod'
 
+/**
+ * Backend CreateCanchaDto requiere:
+ *  - nombre: string
+ *  - superficieId: string (FK)
+ *  - tipoCanchaId?: string (FK opcional)
+ *  - capacidadJugadores?: number
+ *  - fotos?: string[]
+ *
+ * UpdateCanchaDto añade `estado: EstadoCancha`.
+ */
 export const canchaSchema = z.object({
   nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-  deporte: z.enum(['FUTBOL', 'VOLEY', 'BASKET', 'TENIS', 'PADEL', 'OTRO'], {
-    required_error: 'Selecciona un deporte',
-  }),
-  superficie: z.enum(['SINTETICO', 'GRASS', 'CEMENTO', 'MADERA'], {
-    required_error: 'Selecciona una superficie',
-  }),
+  superficieId: z.string().min(1, 'Selecciona una superficie'),
+  tipoCanchaId: z.string().optional().or(z.literal('')),
   capacidadJugadores: z
-    .number({ invalid_type_error: 'Ingresa un número válido' })
-    .min(2, 'Mínimo 2 jugadores')
-    .max(22, 'Máximo 22 jugadores'),
-  precioPorHora: z
-    .number({ invalid_type_error: 'Ingresa un precio válido' })
-    .min(1, 'El precio debe ser mayor a 0'),
-  descripcion: z.string().optional(),
-  estado: z.enum(['ACTIVA', 'INACTIVA', 'MANTENIMIENTO']).default('ACTIVA'),
+    .number({ error: 'Ingresa un número válido' })
+    .int('Debe ser un número entero')
+    .min(1, 'Mínimo 1 jugador')
+    .max(50, 'Máximo 50 jugadores'),
+  fotos: z.array(z.string()).optional(),
+  estado: z.enum(['ACTIVA', 'INACTIVA', 'MANTENIMIENTO']),
 })
 
 export type CanchaFormData = z.infer<typeof canchaSchema>

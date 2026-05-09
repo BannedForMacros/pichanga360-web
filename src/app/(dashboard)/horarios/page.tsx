@@ -1,4 +1,7 @@
+'use client'
+
 import { Header } from '@/components/dashboard/Header'
+import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 
@@ -23,6 +26,7 @@ const horariosBase = [
 ]
 
 export default function HorariosPage() {
+  const { open } = useDashboardMenu()
   return (
     <>
       <Header
@@ -30,8 +34,9 @@ export default function HorariosPage() {
         breadcrumb={[{ label: 'Operación' }, { label: 'Horarios' }]}
         onNew={() => {}}
         newLabel="+ Nuevo bloque"
+        onOpenMenu={open}
       />
-      <div className="grid gap-6 p-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_320px]">
         <Card className="p-0">
           <div className="border-b border-gray-100 px-5 py-4">
             <h3 className="text-base font-semibold text-dark">
