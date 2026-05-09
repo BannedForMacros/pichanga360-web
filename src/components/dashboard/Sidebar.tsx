@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { useModulosDisponibles } from '@/hooks/modulos/useModulosDisponibles'
 import { useLocalActualContext } from '@/contexts/LocalActualContext'
 import { moduloIcon } from './moduloIcon'
+import { resolveRuta } from './rutaResolver'
 import type { ModuloNodo } from '@/types'
 
 interface SidebarProps {
@@ -40,7 +41,7 @@ function ItemLink({
   pathname: string
   onNavigate?: () => void
 }) {
-  const ruta = modulo.ruta
+  const ruta = resolveRuta(modulo.ruta)
   const active = isActive(pathname, ruta)
   const icon = moduloIcon(modulo.icono, 18)
 

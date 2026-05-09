@@ -1,75 +1,110 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
+import { Spinner } from '@/components/ui/Spinner'
+import { useDeportes } from '@/hooks/catalogos/useDeportes'
+import { useSuperficies } from '@/hooks/catalogos/useSuperficies'
+import type { Local } from '@/types'
 
-const deportes = [
-  { value: 'FUTBOL', label: 'Fútbol' },
-  { value: 'VOLEY', label: 'Vóley' },
-  { value: 'BASKET', label: 'Básquet' },
-  { value: 'TENIS', label: 'Tenis' },
-  { value: 'PADEL', label: 'Pádel' },
-]
+export interface FiltrosBusquedaValue {
+  deporteCodigo?: string
+  distrito?: string
+  superficies: string[]
+  precioMax: number
+}
 
-const distritos = [
-  { value: 'San Isidro', count: 24 },
-  { value: 'Miraflores', count: 18 },
-  { value: 'Surco', count: 32 },
-  { value: 'La Molina', count: 12 },
-  { value: 'San Borja', count: 14 },
-  { value: 'Barranco', count: 9 },
-]
+export const FILTROS_DEFAULT: FiltrosBusquedaValue = {
+  deporteCodigo: undefined,
+  distrito: undefined,
+  superficies: [],
+  precioMax: 300,
+}
 
-const horarios = ['Mañana', 'Tarde', 'Noche']
+interface Props {
+  value: FiltrosBusquedaValue
+  onChange: (next: FiltrosBusquedaValue) => void
+  /** Locales actualmente listados, para extraer distritos disponibles con sus counts. */
+  locales?: Local[]
+}
 
-const superficies = [
-  { value: 'GRASS', label: 'Grass natural' },
-  { value: 'SINTETICO', label: 'Sintético' },
-  { value: 'CEMENTO', label: 'Cemento' },
-  { value: 'MADERA', label: 'Madera' },
-]
+export function FiltrosBusqueda({ value, onChange, locales = [] }: Props) {
+  const { data: deportes, isLoading: loadingDeportes } = useDeportes()
+  const { data: superficies, isLoading: loadingSuperficies } = useSuperficies()
 
-export function FiltrosBusqueda() {
-  const [deporte, setDeporte] = useState('FUTBOL')
-  const [precio, setPrecio] = useState(120)
-  const [distritosSeleccionados, setDistritosSeleccionados] = useState<string[]>([])
-  const [horario, setHorario] = useState<string[]>([])
-  const [superficiesSel, setSuperficiesSel] = useState<string[]>([])
+  // Distritos extraídos de los locales devueltos por el backend
+  const distritos = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const l of locales) {
+      map.set(l.distrito, (map.get(l.distrito) ?? 0) + 1)
+    }
+    return Array.from(map.entries())
+      .map(([nombre, count]) => ({ nombre, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [locales])
 
-  const toggle = (
-    arr: string[],
-    setter: (next: string[]) => void,
-    val: string
-  ) => {
-    setter(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val])
+  const set = (patch: Partial<FiltrosBusquedaValue>) =>
+    onChange({ ...value, ...patch })
+
+  const toggleSuperficie = (codigo: string) => {
+    const exists = value.superficies.includes(codigo)
+    set({
+      superficies: exists
+        ? value.superficies.filter((c) => c !== codigo)
+        : [...value.superficies, codigo],
+    })
   }
 
   return (
     <aside className="rounded-2xl border border-gray-200 bg-white p-4 lg:sticky lg:top-20">
       <h3 className="mb-4 hidden text-sm font-semibold text-dark lg:block">Filtros</h3>
 
+      {/* Deporte */}
       <section>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Deporte
         </p>
-        <div className="flex flex-wrap gap-1.5">
-          {deportes.map((d) => (
+        {loadingDeportes ? (
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Spinner size="sm" /> Cargando…
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
             <button
-              key={d.value}
-              onClick={() => setDeporte(d.value)}
+              onClick={() => set({ deporteCodigo: undefined })}
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition',
-                deporte === d.value
+                !value.deporteCodigo
                   ? 'border-primary bg-primary text-white'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-primary'
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-primary',
               )}
             >
-              {d.label}
+              Todos
             </button>
-          ))}
-        </div>
+            {(deportes ?? []).map((d) => (
+              <button
+                key={d.id}
+                onClick={() =>
+                  set({
+                    deporteCodigo:
+                      value.deporteCodigo === d.codigo ? undefined : d.codigo,
+                  })
+                }
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition',
+                  value.deporteCodigo === d.codigo
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-primary',
+                )}
+              >
+                {d.nombre}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
+      {/* Precio (filtro client-side, el endpoint no soporta precio aún) */}
       <section className="mt-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Precio / hora
@@ -79,82 +114,85 @@ export function FiltrosBusqueda() {
           min={20}
           max={300}
           step={10}
-          value={precio}
-          onChange={(e) => setPrecio(Number(e.target.value))}
+          value={value.precioMax}
+          onChange={(e) => set({ precioMax: Number(e.target.value) })}
           className="w-full accent-primary"
         />
         <p className="mt-1 text-xs text-gray-600">
-          Hasta <span className="font-semibold text-dark">S/ {precio}</span>
+          Hasta{' '}
+          <span className="font-semibold text-dark">S/ {value.precioMax}</span>
         </p>
       </section>
 
+      {/* Distritos (derivados del listado actual) */}
       <section className="mt-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Distrito
         </p>
-        <ul className="space-y-1.5">
-          {distritos.map((d) => (
-            <li key={d.value} className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={distritosSeleccionados.includes(d.value)}
-                  onChange={() =>
-                    toggle(distritosSeleccionados, setDistritosSeleccionados, d.value)
-                  }
-                  className="accent-primary"
-                />
-                {d.value}
-              </label>
-              <span className="text-xs text-gray-500">{d.count}</span>
-            </li>
-          ))}
-        </ul>
+        {distritos.length === 0 ? (
+          <p className="text-xs text-gray-500">
+            Aparecerán al cargar los locales.
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {distritos.map((d) => (
+              <li
+                key={d.nombre}
+                className="flex items-center justify-between text-sm"
+              >
+                <label className="flex items-center gap-2 text-gray-700">
+                  <input
+                    type="radio"
+                    name="distrito"
+                    checked={value.distrito === d.nombre}
+                    onChange={() => set({ distrito: d.nombre })}
+                    className="accent-primary"
+                  />
+                  {d.nombre}
+                </label>
+                <span className="text-xs text-gray-500">{d.count}</span>
+              </li>
+            ))}
+            {value.distrito && (
+              <li>
+                <button
+                  onClick={() => set({ distrito: undefined })}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Limpiar distrito
+                </button>
+              </li>
+            )}
+          </ul>
+        )}
       </section>
 
-      <section className="mt-5">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-          Horario
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {horarios.map((h) => (
-            <button
-              key={h}
-              onClick={() => toggle(horario, setHorario, h)}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs font-medium transition',
-                horario.includes(h)
-                  ? 'border-primary bg-primary-50 text-primary'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-primary'
-              )}
-            >
-              {h}
-            </button>
-          ))}
-        </div>
-      </section>
-
+      {/* Superficie (client-side filter sobre canchas embebidas) */}
       <section className="mt-5">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Superficie
         </p>
-        <ul className="space-y-1.5">
-          {superficies.map((s) => (
-            <li key={s.value}>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={superficiesSel.includes(s.value)}
-                  onChange={() =>
-                    toggle(superficiesSel, setSuperficiesSel, s.value)
-                  }
-                  className="accent-primary"
-                />
-                {s.label}
-              </label>
-            </li>
-          ))}
-        </ul>
+        {loadingSuperficies ? (
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Spinner size="sm" /> Cargando…
+          </div>
+        ) : (
+          <ul className="space-y-1.5">
+            {(superficies ?? []).map((s) => (
+              <li key={s.id}>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={value.superficies.includes(s.codigo)}
+                    onChange={() => toggleSuperficie(s.codigo)}
+                    className="accent-primary"
+                  />
+                  {s.nombre}
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </aside>
   )

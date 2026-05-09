@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import Container from '@/components/ui/Container'
 import { HeroSearch } from '@/components/public/HeroSearch'
 import { CanchasDestacadas } from '@/components/public/CanchasDestacadas'
+import { HeroBadgeCount, HeroStats } from '@/components/public/HeroStats'
 
 const features = [
   {
@@ -27,12 +28,6 @@ const features = [
     title: 'Métricas en vivo',
     description: 'Ocupación, ingresos y horarios pico al instante.',
   },
-]
-
-const stats = [
-  { value: '12K+', label: 'Reservas / mes' },
-  { value: '4.9', label: 'Rating promedio' },
-  { value: '28', label: 'Distritos' },
 ]
 
 export default function LandingPage() {
@@ -62,7 +57,7 @@ export default function LandingPage() {
         <Container className="relative py-20">
           <div className="text-center">
             <Badge variant="warning" size="md" className="mx-auto bg-warning text-white">
-              ⚡ +2,400 canchas en todo el Perú
+              <HeroBadgeCount />
             </Badge>
 
             <h1 className="mx-auto mt-6 max-w-4xl text-center text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl">
@@ -79,16 +74,7 @@ export default function LandingPage() {
               <HeroSearch />
             </div>
 
-            <div className="mx-auto mt-12 grid max-w-2xl grid-cols-3 gap-6 text-center">
-              {stats.map((s) => (
-                <div key={s.label}>
-                  <p className="text-3xl font-bold text-warning md:text-4xl">{s.value}</p>
-                  <p className="mt-1 text-xs uppercase tracking-wide text-white/60">
-                    {s.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <HeroStats />
           </div>
         </Container>
       </section>
@@ -145,24 +131,32 @@ export default function LandingPage() {
             <div className="rounded-3xl bg-primary-600/30 p-6">
               <div className="rounded-2xl bg-white p-6 text-dark shadow-2xl">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-gray-500">Reservas hoy</p>
-                  <Badge variant="success">+12%</Badge>
+                  <p className="text-sm font-semibold text-gray-500">
+                    Tu panel de control
+                  </p>
+                  <Badge variant="success">En vivo</Badge>
                 </div>
-                <p className="mt-2 text-3xl font-bold">18 reservas</p>
-                <p className="mt-1 text-xs text-gray-500">vs. ayer (16)</p>
+                <p className="mt-2 text-3xl font-bold">Reservas, pagos y reportes</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Todo en una sola vista, conectado a tu base de datos.
+                </p>
 
                 <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-xl bg-success-50 p-3">
                     <p className="text-xs font-semibold uppercase text-success-600">
-                      Ingresos
+                      Pagos
                     </p>
-                    <p className="text-lg font-bold text-success-600">S/ 2,160</p>
+                    <p className="text-sm font-semibold text-success-600">
+                      Yape · Plin · Transferencia
+                    </p>
                   </div>
                   <div className="rounded-xl bg-warning-50 p-3">
                     <p className="text-xs font-semibold uppercase text-warning-600">
-                      Ocupación
+                      Reportes
                     </p>
-                    <p className="text-lg font-bold text-warning-600">78%</p>
+                    <p className="text-sm font-semibold text-warning-600">
+                      Ocupación e ingresos
+                    </p>
                   </div>
                 </div>
               </div>

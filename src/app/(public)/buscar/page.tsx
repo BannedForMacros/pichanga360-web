@@ -5,14 +5,18 @@ import { SlidersHorizontal, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import Container from '@/components/ui/Container'
 import { Spinner } from '@/components/ui/Spinner'
-import { FiltrosBusqueda } from '@/components/public/FiltrosBusqueda'
+import {
+  FILTROS_DEFAULT,
+  FiltrosBusqueda,
+  type FiltrosBusquedaValue,
+} from '@/components/public/FiltrosBusqueda'
 import { ResultCard, type ResultCardData } from '@/components/public/ResultCard'
 import { useLocales } from '@/hooks/locales/useLocales'
 import type { Cancha, Local } from '@/types'
 
 function localToResultCards(local: Local): ResultCardData[] {
   // Un local puede tener varias canchas; mostramos una card por cada cancha
-  // disponible (o una sola card si el local no expone canchas en la respuesta).
+  // (o una sola card si la respuesta del listado no expone canchas).
   const direccion = `${local.calle} ${local.numero}`
   const distrito = `${local.distrito} · ${local.provincia}`
 
@@ -35,7 +39,6 @@ function localToResultCards(local: Local): ResultCardData[] {
   }
 
   return canchas.map((c) => {
-    // Inferimos deporte/superficie a partir de las relaciones embebidas si vienen
     const deporteCodigo = c.tipoCancha?.deporte?.codigo?.toUpperCase()
     const superficieCodigo = c.superficie?.codigo?.toUpperCase()
 
@@ -64,23 +67,45 @@ function localToResultCards(local: Local): ResultCardData[] {
 export default function BuscarPage() {
   const [orden, setOrden] = useState<'precio' | 'rating'>('precio')
   const [filtrosOpen, setFiltrosOpen] = useState(false)
+  const [filtros, setFiltros] = useState<FiltrosBusquedaValue>(FILTROS_DEFAULT)
 
-  const { data, isLoading } = useLocales({ limit: 30 })
+  const { data, isLoading } = useLocales({
+    limit: 30,
+    deporteCodigo: filtros.deporteCodigo,
+    distrito: filtros.distrito,
+  })
 
   const resultados = useMemo(() => {
     if (!data?.data?.length) return []
-    const flat = data.data.flatMap(localToResultCards)
+    let flat = data.data.flatMap(localToResultCards)
+
+    // Filtros client-side: superficies + precio máximo
+    if (filtros.superficies.length > 0) {
+      flat = flat.filter((c) =>
+        filtros.superficies.includes(String(c.superficie).toUpperCase()),
+      )
+    }
+    if (filtros.precioMax > 0) {
+      flat = flat.filter(
+        (c) => c.precioPorHora === 0 || c.precioPorHora <= filtros.precioMax,
+      )
+    }
+
     if (orden === 'precio')
       flat.sort((a, b) => a.precioPorHora - b.precioPorHora)
     return flat
-  }, [data, orden])
+  }, [data, orden, filtros])
 
   return (
     <Container className="py-8">
       <div className="grid gap-6 lg:grid-cols-[220px_1fr] xl:grid-cols-[220px_1fr_400px]">
         {/* Filtros desktop */}
         <div className="hidden lg:block">
-          <FiltrosBusqueda />
+          <FiltrosBusqueda
+            value={filtros}
+            onChange={setFiltros}
+            locales={data?.data ?? []}
+          />
         </div>
 
         {/* Resultados */}
@@ -88,7 +113,9 @@ export default function BuscarPage() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-dark sm:text-2xl">
-                {isLoading ? 'Cargando...' : `${resultados.length} canchas encontradas`}
+                {isLoading
+                  ? 'Cargando...'
+                  : `${resultados.length} canchas encontradas`}
               </h1>
               <p className="text-xs text-gray-500">
                 {data?.meta?.total
@@ -145,10 +172,16 @@ export default function BuscarPage() {
             <div className="flex h-full flex-col">
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 text-xs">
                 <label className="flex items-center gap-2 text-gray-600">
-                  <input type="checkbox" defaultChecked className="accent-primary" />
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="accent-primary"
+                  />
                   Buscar al mover el mapa
                 </label>
-                <span className="font-semibold text-primary">Lima, Perú</span>
+                <span className="font-semibold text-primary">
+                  {filtros.distrito ? filtros.distrito : 'Lima, Perú'}
+                </span>
               </div>
               <div className="relative flex-1 bg-gradient-to-br from-primary-50 via-background to-primary-100">
                 <div className="absolute inset-0 grid grid-cols-12 grid-rows-12 opacity-30">
@@ -169,7 +202,7 @@ export default function BuscarPage() {
                   </span>
                 ))}
                 <div className="absolute bottom-3 right-3 rounded-xl bg-white/90 px-3 py-2 text-xs font-medium text-gray-600 shadow">
-                  Mapa simulado · activa Google Maps API
+                  Vista previa · activa Google Maps API para ver geolocalización
                 </div>
               </div>
             </div>
@@ -195,7 +228,11 @@ export default function BuscarPage() {
             Cerrar
           </Button>
         </div>
-        <FiltrosBusqueda />
+        <FiltrosBusqueda
+          value={filtros}
+          onChange={setFiltros}
+          locales={data?.data ?? []}
+        />
       </div>
     </Container>
   )
