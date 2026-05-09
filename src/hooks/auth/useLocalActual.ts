@@ -1,24 +1,19 @@
 'use client'
 
-import { useUsuarioActual } from './useAuth'
+import { useLocalActualContext } from '@/contexts/LocalActualContext'
 
 /**
- * Devuelve el primer localId/empresaId que el usuario tiene en sus roles.
+ * Devuelve el localId/empresaId/rol del local actualmente seleccionado.
  *
- * Más adelante esto puede convertirse en un selector global (cuando un usuario
- * tiene múltiples locales/empresas), pero para esta fase tomamos el primer
- * scope que encontramos.
+ * La fuente de verdad es LocalActualContext (montado en el dashboard layout),
+ * que combina:
+ *   - el rol del usuario (si trae localId fijo, ese gana)
+ *   - la selección persistida en localStorage
+ *   - el primer local disponible
+ *
+ * Fuera del dashboard devuelve nulls sin romper.
  */
 export function useLocalActual() {
-  const { data, isLoading } = useUsuarioActual()
-
-  const conLocal = data?.roles?.find((r) => r.localId)
-  const conEmpresa = data?.roles?.find((r) => r.empresaId)
-
-  return {
-    isLoading,
-    localId: conLocal?.localId ?? null,
-    empresaId: conLocal?.empresaId ?? conEmpresa?.empresaId ?? null,
-    rol: conLocal?.rol ?? conEmpresa?.rol ?? data?.roles?.[0]?.rol ?? null,
-  }
+  const { localId, empresaId, rol, isLoading } = useLocalActualContext()
+  return { localId, empresaId, rol, isLoading }
 }
