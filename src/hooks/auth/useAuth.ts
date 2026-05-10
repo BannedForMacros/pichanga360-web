@@ -3,12 +3,30 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api, { tokenStore } from '@/lib/api'
 import toast from 'react-hot-toast'
-import type { MeResponse, TokenResponse } from '@/types'
+import type { MeResponse, TipoRol, TokenResponse, Usuario } from '@/types'
 import type {
   LoginFormData,
   RegistroEmpresaFormData,
   RegistroFormData,
 } from '@/validators/auth/auth.schema'
+
+/**
+ * Shape "crudo" que devuelve el backend en GET /auth/me.
+ * Notar que `rol` viene como objeto { codigo, nombre } — distinto del
+ * TokenResponse de /auth/login donde `rol` es directamente un string.
+ * Lo normalizamos al shape plano `MeResponse` que el resto del frontend
+ * (LocalActualContext, DashboardGuard, useLocalActual, etc.) ya consume.
+ */
+interface RawMeResponse {
+  user: Usuario
+  roles: Array<{
+    rol: { codigo: TipoRol; nombre: string }
+    empresaId: string | null
+    localId: string | null
+    empresa?: { id: string; nombre: string } | null
+    local?: { id: string; nombre: string } | null
+  }>
+}
 
 export function useUsuarioActual() {
   return useQuery<MeResponse | null>({
@@ -16,8 +34,15 @@ export function useUsuarioActual() {
     queryFn: async () => {
       if (typeof window === 'undefined') return null
       if (!tokenStore.getAccess()) return null
-      const { data } = await api.get<MeResponse>('/auth/me')
-      return data
+      const { data } = await api.get<RawMeResponse>('/auth/me')
+      return {
+        user: data.user,
+        roles: data.roles.map((r) => ({
+          rol: r.rol.codigo,
+          empresaId: r.empresaId,
+          localId: r.localId,
+        })),
+      }
     },
     staleTime: 1000 * 60 * 10,
     retry: false,

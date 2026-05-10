@@ -90,11 +90,23 @@ api.interceptors.response.use(
     const raw = error?.response?.data?.message
     const backendMessage = Array.isArray(raw) ? raw.join(' · ') : raw
 
+    // En endpoints de auth, un 401 NO significa "tu token expiró" sino
+    // "credenciales inválidas / cuenta no encontrada". Hay que mostrar el
+    // mensaje real del backend en lugar del genérico de sesión expirada.
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/register-empresa') ||
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/change-password')
+
     const messages: Record<number, string> = {
       400: backendMessage || 'Los datos enviados no son válidos.',
-      401: 'Tu sesión expiró. Por favor vuelve a iniciar sesión.',
-      403: 'No tienes permiso para realizar esta acción.',
-      404: 'No encontramos lo que buscabas.',
+      401: isAuthEndpoint
+        ? backendMessage || 'Email o contraseña incorrectos.'
+        : 'Tu sesión expiró. Por favor vuelve a iniciar sesión.',
+      403: backendMessage || 'No tienes permiso para realizar esta acción.',
+      404: backendMessage || 'No encontramos lo que buscabas.',
       409: backendMessage || 'Ya existe un registro con esos datos.',
       422: backendMessage || 'Revisa los campos del formulario.',
       429: 'Demasiados intentos. Espera un momento e intenta de nuevo.',
