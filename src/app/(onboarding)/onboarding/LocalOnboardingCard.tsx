@@ -36,7 +36,10 @@ export function LocalOnboardingCard() {
   const { data: empresa } = useEmpresaActual()
   const { locales, isLoading: loadingLocales } = useLocalesEmpresa()
   const crear = useCrearLocal()
-  const [mostrarManual, setMostrarManual] = useState(false)
+  // El bloque "refinar manualmente" arranca abierto y solo se cierra/abre con
+  // el toggle del usuario. NUNCA depende de si los campos están llenos —
+  // si dependiera, escribir un dígito lo cerraría y perderías el foco del input.
+  const [mostrarManual, setMostrarManual] = useState(true)
 
   const {
     register,
@@ -117,8 +120,8 @@ export function LocalOnboardingCard() {
   const nombreUsuario = me?.user?.nombre ?? ''
   const nombreEmpresa = empresa?.nombre ?? 'tu empresa'
 
-  // Detectamos si los campos requeridos están auto-llenados desde el mapa
-  // para mostrar/ocultar el bloque "refinar manualmente"
+  // Solo informativo: se usa para decidir si pintar el badge "Recomendado"
+  // junto al toggle. NUNCA condiciona el render de los inputs.
   const direccionLista =
     !!mapValue.calle &&
     !!mapValue.numero &&
@@ -211,7 +214,7 @@ export function LocalOnboardingCard() {
             />
           </button>
 
-          {(mostrarManual || !direccionLista) && (
+          {mostrarManual && (
             <div className="mt-4 space-y-4">
               <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
                 <Input

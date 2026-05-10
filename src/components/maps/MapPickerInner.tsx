@@ -53,15 +53,24 @@ interface NominatimResult {
   address?: {
     road?: string
     pedestrian?: string
+    footway?: string
     house_number?: string
-    suburb?: string
-    neighbourhood?: string
+    // Campos administrativos (de mayor a menor jerarquía):
+    state?: string // departamento (Lima, Lambayeque, Cusco…)
+    state_district?: string // p.ej. "Lima Metropolitana"
+    region?: string // a veces provincia
+    county?: string
+    province?: string
+    municipality?: string
+    city?: string // distrito (Perú)
     city_district?: string
-    city?: string
     town?: string
     village?: string
-    county?: string
-    state?: string
+    // Sub-distrito / barrio (NO usar como distrito):
+    suburb?: string
+    neighbourhood?: string
+    quarter?: string
+    hamlet?: string
     country?: string
   }
 }
@@ -69,23 +78,41 @@ interface NominatimResult {
 const NOMINATIM = 'https://nominatim.openstreetmap.org'
 const DEFAULT_HEIGHT = 320
 
-/** Mapea la respuesta de Nominatim al shape MapPickerValue */
+/**
+ * Mapea la respuesta de Nominatim al shape MapPickerValue para PERÚ.
+ *
+ * Tras inspeccionar respuestas reales en Lima (San Isidro), Chiclayo y Cusco,
+ * la jerarquía administrativa peruana en Nominatim es:
+ *   - state           → DEPARTAMENTO (Lambayeque, Lima, Cusco…)
+ *   - state_district  → PROVINCIA en Lima ("Lima Metropolitana")
+ *   - region          → PROVINCIA en el resto del país (Chiclayo, Cusco…)
+ *   - city            → DISTRITO (San Isidro, Chiclayo, Cuzco…)
+ *   - suburb / neighbourhood / quarter → BARRIO (Condominio Colibrí, urbanizaciones)
+ *
+ * Por eso NO usamos `suburb` ni `neighbourhood` como distrito — eso fue el bug
+ * que devolvía "Condominio Colibrí" en lugar de "Chiclayo".
+ */
 function fromNominatim(r: NominatimResult): MapPickerValue {
   const a = r.address ?? {}
+  const departamento = a.state ?? ''
+  const provincia =
+    a.state_district ?? a.county ?? a.region ?? a.province ?? ''
+  const distrito =
+    a.city ??
+    a.town ??
+    a.village ??
+    a.municipality ??
+    a.city_district ??
+    ''
+
   return {
     latitud: parseFloat(r.lat),
     longitud: parseFloat(r.lon),
-    calle: a.road ?? a.pedestrian ?? '',
+    calle: a.road ?? a.pedestrian ?? a.footway ?? '',
     numero: a.house_number ?? '',
-    distrito:
-      a.suburb ??
-      a.neighbourhood ??
-      a.city_district ??
-      a.town ??
-      a.village ??
-      '',
-    provincia: a.city ?? a.county ?? '',
-    departamento: a.state ?? '',
+    distrito,
+    provincia,
+    departamento,
   }
 }
 

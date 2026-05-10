@@ -16,7 +16,7 @@ function pickFeatured(local: Local): CanchaCardData | null {
       nombre: local.nombre,
       deporte: 'OTRO',
       superficie: 'SINTETICO',
-      distrito: `${local.distrito} · Lima`,
+      distrito: `${local.distrito} · ${local.provincia}`,
       precioPorHora: 0,
       disponibilidad: 'Disponible hoy',
     }

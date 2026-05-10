@@ -1,9 +1,14 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import api, { tokenStore } from '@/lib/api'
 import { useUsuarioActual } from '@/hooks/auth/useAuth'
-import type { Empresa } from '@/types'
+import type { Empresa, TelefonoEmpresa } from '@/types'
+import type {
+  TelefonoEmpresaFormData,
+  UpdateEmpresaFormData,
+} from '@/validators/empresas/empresa.schema'
 
 const ROLES_CON_EMPRESA = ['ADMIN_EMPRESA', 'ADMIN_LOCAL', 'OPERADOR'] as const
 
@@ -31,5 +36,57 @@ export function useEmpresaActual() {
       tieneRolDeEmpresa,
     retry: false,
     staleTime: 1000 * 60 * 10,
+  })
+}
+
+/** Backend: PATCH /empresas/me (ADMIN_EMPRESA) */
+export function useEditarEmpresa() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateEmpresaFormData) => {
+      const payload = {
+        ...input,
+        logoUrl: input.logoUrl?.length ? input.logoUrl : undefined,
+      }
+      const { data } = await api.patch<Empresa>('/empresas/me', payload)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['empresas'] })
+      toast.success('Empresa actualizada', { position: 'top-right' })
+    },
+  })
+}
+
+/** Backend: POST /empresas/me/telefonos (ADMIN_EMPRESA) */
+export function useAgregarTelefonoEmpresa() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: TelefonoEmpresaFormData) => {
+      const { data } = await api.post<TelefonoEmpresa>(
+        '/empresas/me/telefonos',
+        input,
+      )
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['empresas'] })
+      toast.success('Teléfono agregado', { position: 'top-right' })
+    },
+  })
+}
+
+/** Backend: DELETE /empresas/me/telefonos/:id (ADMIN_EMPRESA) */
+export function useEliminarTelefonoEmpresa() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (telefonoId: string) => {
+      await api.delete(`/empresas/me/telefonos/${telefonoId}`)
+      return telefonoId
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['empresas'] })
+      toast.success('Teléfono eliminado', { position: 'top-right' })
+    },
   })
 }
