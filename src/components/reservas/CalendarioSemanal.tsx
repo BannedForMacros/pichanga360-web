@@ -84,11 +84,15 @@ export function CalendarioSemanal({
   const hasta = addDias(lunes, 7).toISOString()
 
   const { data: horarios } = useHorariosByCancha(canchaId)
+  // El backend acepta limit máximo 100 (PaginationQueryDto). Para una
+  // sola cancha en una semana eso es más que suficiente (7 días × ~16h
+  // operativas = 112 slots como tope teórico, pero las reservas reales
+  // rara vez llenan más de 50).
   const { data: reservasResp, isLoading } = useReservas({
     canchaId,
     desde,
     hasta,
-    limit: 200,
+    limit: 100,
   })
 
   // Rango de horas según horarios operativos. Sin horarios → default 7-23.
