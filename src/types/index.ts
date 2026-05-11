@@ -191,6 +191,9 @@ export interface TipoCancha {
   descripcion: string | null
   activo: boolean
   deporte?: Deporte
+  // Tarifas heredadas del tipo (aplican a todas las canchas del tipo si la
+  // cancha no tiene un override en su propia tabla `tarifas`).
+  tarifas?: Tarifa[]
 }
 
 export interface CategoriaProducto {

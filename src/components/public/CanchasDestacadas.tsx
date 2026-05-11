@@ -9,8 +9,8 @@ import { CanchaCard, type CanchaCardData } from '@/components/public/CanchaCard'
 import type { Local, Cancha, DeporteCodigo, SuperficieCodigo } from '@/types'
 
 function pickFeatured(local: Local): CanchaCardData | null {
-  const cancha: Cancha | undefined = local.canchas?.[0]
-  if (!cancha) {
+  const canchas = local.canchas ?? []
+  if (canchas.length === 0) {
     return {
       id: local.id,
       nombre: local.nombre,
@@ -21,9 +21,29 @@ function pickFeatured(local: Local): CanchaCardData | null {
       disponibilidad: 'Disponible hoy',
     }
   }
+
+  // "Cancha destacada": preferimos una que tenga tarifas (override propio o
+  // heredadas del tipoCancha). Si ninguna tiene, usamos la primera.
+  const conTarifas = canchas.find(
+    (c) =>
+      (c.tarifas?.length ?? 0) > 0 ||
+      (c.tipoCancha?.tarifas?.length ?? 0) > 0,
+  )
+  const cancha: Cancha = conTarifas ?? canchas[0]
+
   const deporteCodigo = cancha.tipoCancha?.deporte?.codigo?.toUpperCase()
   const superficieCodigo = cancha.superficie?.codigo?.toUpperCase()
-  const precios = (cancha.tarifas ?? []).map((t) => Number(t.precioHora))
+
+  // Precio mínimo de TODAS las tarifas (override + heredadas) de TODAS las
+  // canchas del local — así "Desde S/ X" refleja la oferta real del local,
+  // no solo la primera cancha que vino en la respuesta.
+  const todasLasTarifas = canchas.flatMap((c) => [
+    ...(c.tarifas ?? []),
+    ...(c.tipoCancha?.tarifas ?? []),
+  ])
+  const precios = todasLasTarifas
+    .map((t) => Number(t.precioHora))
+    .filter((n) => n > 0)
   const minPrecio = precios.length ? Math.min(...precios) : 0
 
   return {

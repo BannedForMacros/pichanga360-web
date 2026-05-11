@@ -40,9 +40,36 @@ function formatHora(iso: string) {
   })
 }
 
-function montoReserva(r: Reserva): number {
-  if (!r.pagos?.length) return 0
-  return r.pagos.reduce((acc, p) => acc + Number(p.monto ?? 0), 0)
+/**
+ * Devuelve el monto a mostrar para una reserva.
+ *
+ *  - Si existen pagos → devuelve la suma como `cobrado`.
+ *  - Si no hay pagos pero la cancha tiene tarifas (override o heredadas del
+ *    tipoCancha), calcula el monto estimado: duración (horas) × tarifa
+ *    cuya franja horaria cubra `horaInicio` (fallback: la primera tarifa).
+ *  - Si no hay tarifas todavía, devuelve 0 sin estimar.
+ */
+function montoReserva(r: Reserva): { monto: number; estimado: boolean } {
+  const totalPagado =
+    r.pagos?.reduce((acc, p) => acc + Number(p.monto ?? 0), 0) ?? 0
+  if (totalPagado > 0) return { monto: totalPagado, estimado: false }
+
+  const inicio = new Date(r.fechaInicio)
+  const fin = new Date(r.fechaFin)
+  const horas = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
+  if (horas <= 0) return { monto: 0, estimado: false }
+
+  const tarifas = [
+    ...(r.cancha?.tarifas ?? []),
+    ...(r.cancha?.tipoCancha?.tarifas ?? []),
+  ]
+  if (tarifas.length === 0) return { monto: 0, estimado: false }
+
+  const hh = inicio.toTimeString().slice(0, 5) // "19:00"
+  const aplicable =
+    tarifas.find((t) => hh >= t.horaInicio && hh < t.horaFin) ?? tarifas[0]
+  const monto = horas * Number(aplicable.precioHora)
+  return { monto, estimado: true }
 }
 
 export function TablaReservas({ reservas }: { reservas: Reserva[] }) {
@@ -111,7 +138,7 @@ export function TablaReservas({ reservas }: { reservas: Reserva[] }) {
                 const cliente = r.cliente
                   ? `${r.cliente.nombre} ${r.cliente.apellido}`
                   : 'Cliente desconocido'
-                const monto = montoReserva(r)
+                const { monto, estimado } = montoReserva(r)
                 return (
                   <tr
                     key={r.id}
@@ -139,8 +166,29 @@ export function TablaReservas({ reservas }: { reservas: Reserva[] }) {
                         {formatHora(r.fechaInicio)} — {formatHora(r.fechaFin)}
                       </p>
                     </td>
-                    <td className="px-5 py-3 font-semibold text-primary">
-                      {monto > 0 ? formatCurrency(monto) : '—'}
+                    <td className="px-5 py-3 font-semibold">
+                      {monto > 0 ? (
+                        <span
+                          className={cn(
+                            'inline-flex items-baseline gap-1',
+                            estimado ? 'text-gray-700' : 'text-primary',
+                          )}
+                          title={
+                            estimado
+                              ? 'Monto estimado a partir de la tarifa de la cancha. Aún no hay pago registrado.'
+                              : 'Monto cobrado según pagos confirmados.'
+                          }
+                        >
+                          {formatCurrency(monto)}
+                          {estimado && (
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                              est.
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={e.variant}>{e.label}</Badge>

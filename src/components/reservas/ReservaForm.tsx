@@ -17,17 +17,37 @@ import type { Cancha } from '@/types'
 interface ReservaFormProps {
   canchas?: Pick<Cancha, 'id' | 'nombre'>[]
   defaultCanchaId?: string
+  /** YYYY-MM-DD, p.ej. la fecha que el usuario eligió en la página pública */
+  defaultFecha?: string
+  /** HH:mm, p.ej. el slot que el usuario clicó */
+  defaultHoraInicio?: string
+  /** HH:mm, calculado normalmente como horaInicio + 1h */
+  defaultHoraFin?: string
   onSuccess?: () => void
   onCancel?: () => void
+}
+
+function sumarHora(hhmm: string, horas: number): string {
+  const [h, m] = hhmm.split(':').map((n) => parseInt(n, 10))
+  const total = h * 60 + m + horas * 60
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0')
+  const mm = String(total % 60).padStart(2, '0')
+  return `${hh}:${mm}`
 }
 
 export function ReservaForm({
   canchas = [],
   defaultCanchaId,
+  defaultFecha,
+  defaultHoraInicio,
+  defaultHoraFin,
   onSuccess,
   onCancel,
 }: ReservaFormProps) {
   const crear = useCrearReserva()
+
+  const horaInicio = defaultHoraInicio ?? '18:00'
+  const horaFin = defaultHoraFin ?? sumarHora(horaInicio, 1)
 
   const {
     register,
@@ -38,9 +58,9 @@ export function ReservaForm({
     resolver: zodResolver(reservaSchema),
     defaultValues: {
       canchaId: defaultCanchaId ?? '',
-      fecha: new Date().toISOString().slice(0, 10),
-      horaInicio: '18:00',
-      horaFin: '19:00',
+      fecha: defaultFecha ?? new Date().toISOString().slice(0, 10),
+      horaInicio,
+      horaFin,
       notas: '',
     },
   })

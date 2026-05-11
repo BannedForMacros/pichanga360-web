@@ -1,43 +1,191 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { CalendarDays, Search, Table } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
 import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { ReservaForm } from '@/components/reservas/ReservaForm'
 import { TablaReservas } from '@/components/reservas/TablaReservas'
+import { CalendarioSemanal } from '@/components/reservas/CalendarioSemanal'
+import { MisReservasList } from '@/components/reservas/MisReservasList'
 import { useReservas } from '@/hooks/reservas/useReservas'
 import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
 import { useLocalActual } from '@/hooks/auth/useLocalActual'
+import { useUsuarioActual } from '@/hooks/auth/useAuth'
+import { cn } from '@/lib/utils'
+import type { Reserva } from '@/types'
+
+type Vista = 'calendario' | 'tabla'
 
 export default function ReservasPage() {
-  const [open, setOpen] = useState(false)
+  const router = useRouter()
   const { open: openMenu } = useDashboardMenu()
   const { localId, isLoading: loadingLocal } = useLocalActual()
+  const { data: me } = useUsuarioActual()
+
+  const esClientePuro =
+    !!me?.roles?.length && me.roles.every((r) => r.rol === 'CLIENTE')
 
   const { data: reservasResp, isLoading } = useReservas({
-    localId: localId ?? undefined,
+    localId: esClientePuro ? undefined : localId ?? undefined,
     limit: 50,
   })
-  const { data: canchas } = useCanchasByLocal(localId ?? undefined)
+  const { data: canchas } = useCanchasByLocal(
+    esClientePuro ? undefined : localId ?? undefined,
+  )
+
+  // ============== VISTA CLIENTE ==============
+  if (esClientePuro) {
+    return (
+      <>
+        <Header
+          title="Mis reservas"
+          breadcrumb={[{ label: 'Cliente' }, { label: 'Mis reservas' }]}
+          onOpenMenu={openMenu}
+        />
+        <div className="flex flex-col gap-4 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-gray-600">
+              Aquí ves todas tus reservas activas, pasadas y canceladas.
+            </p>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Search size={14} />}
+              onClick={() => router.push('/buscar')}
+            >
+              Buscar canchas
+            </Button>
+          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Spinner size="lg" />
+            </div>
+          ) : (
+            <MisReservasList reservas={reservasResp?.data ?? []} />
+          )}
+        </div>
+      </>
+    )
+  }
+
+  // ============== VISTA DUEÑO / OPERADOR ==============
+  return (
+    <DueñoView
+      canchas={canchas ?? []}
+      reservas={reservasResp?.data ?? []}
+      isLoading={loadingLocal || isLoading}
+      onOpenMenu={openMenu}
+    />
+  )
+}
+
+interface DueñoViewProps {
+  canchas: { id: string; nombre: string }[]
+  reservas: Reserva[]
+  isLoading: boolean
+  onOpenMenu: () => void
+}
+
+function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProps) {
+  const [vista, setVista] = useState<Vista>('calendario')
+  const [open, setOpen] = useState(false)
+  const [canchaCalendario, setCanchaCalendario] = useState<string | undefined>()
+  const [defaultFecha, setDefaultFecha] = useState<string | undefined>()
+  const [defaultHora, setDefaultHora] = useState<string | undefined>()
+
+  // Cuando cargan las canchas, auto-seleccionar la primera para el calendario
+  useEffect(() => {
+    if (canchas.length === 0) {
+      setCanchaCalendario(undefined)
+      return
+    }
+    if (
+      !canchaCalendario ||
+      !canchas.some((c) => c.id === canchaCalendario)
+    ) {
+      setCanchaCalendario(canchas[0].id)
+    }
+  }, [canchas, canchaCalendario])
+
+  const onCrearDesdeCalendario = (fecha: string, hora: string) => {
+    setDefaultFecha(fecha)
+    setDefaultHora(hora)
+    setOpen(true)
+  }
+
+  const onNuevaReserva = () => {
+    setDefaultFecha(undefined)
+    setDefaultHora(undefined)
+    setOpen(true)
+  }
 
   return (
     <>
       <Header
         title="Reservas"
         breadcrumb={[{ label: 'Operación' }, { label: 'Reservas' }]}
-        onNew={() => setOpen(true)}
+        onNew={onNuevaReserva}
         newLabel="+ Nueva reserva"
-        onOpenMenu={openMenu}
+        onOpenMenu={onOpenMenu}
       />
-      <div className="p-4 sm:p-6">
-        {loadingLocal || isLoading ? (
+
+      <div className="flex flex-col gap-4 p-4 sm:p-6">
+        {/* Toggle vista */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+            <button
+              onClick={() => setVista('calendario')}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+                vista === 'calendario'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-600 hover:text-primary',
+              )}
+            >
+              <CalendarDays size={14} /> Calendario
+            </button>
+            <button
+              onClick={() => setVista('tabla')}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+                vista === 'tabla'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-600 hover:text-primary',
+              )}
+            >
+              <Table size={14} /> Tabla
+            </button>
+          </div>
+
+          {vista === 'calendario' && canchas.length > 0 && (
+            <div className="w-full sm:w-72">
+              <SearchableSelect
+                options={canchas.map((c) => ({ label: c.nombre, value: c.id }))}
+                value={canchaCalendario}
+                onChange={(v) => setCanchaCalendario(v)}
+                placeholder="Selecciona una cancha"
+              />
+            </div>
+          )}
+        </div>
+
+        {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Spinner size="lg" />
           </div>
+        ) : vista === 'calendario' ? (
+          <CalendarioSemanal
+            canchaId={canchaCalendario}
+            onCrearReserva={onCrearDesdeCalendario}
+          />
         ) : (
-          <TablaReservas reservas={reservasResp?.data ?? []} />
+          <TablaReservas reservas={reservas} />
         )}
       </div>
 
@@ -45,11 +193,18 @@ export default function ReservasPage() {
         isOpen={open}
         onClose={() => setOpen(false)}
         title="Nueva reserva"
-        description="Asigna una cancha y un horario."
+        description={
+          defaultFecha && defaultHora
+            ? `Pre-rellenamos fecha ${defaultFecha} y hora ${defaultHora}`
+            : 'Asigna una cancha y un horario.'
+        }
         size="lg"
       >
         <ReservaForm
-          canchas={canchas ?? []}
+          canchas={canchas}
+          defaultCanchaId={canchaCalendario}
+          defaultFecha={defaultFecha}
+          defaultHoraInicio={defaultHora}
           onSuccess={() => setOpen(false)}
           onCancel={() => setOpen(false)}
         />

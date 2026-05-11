@@ -42,7 +42,14 @@ function localToResultCards(local: Local): ResultCardData[] {
     const deporteCodigo = c.tipoCancha?.deporte?.codigo?.toUpperCase()
     const superficieCodigo = c.superficie?.codigo?.toUpperCase()
 
-    const precios = (c.tarifas ?? []).map((t) => Number(t.precioHora))
+    // Tarifas: override propio + heredadas del tipoCancha
+    const tarifasCancha = [
+      ...(c.tarifas ?? []),
+      ...(c.tipoCancha?.tarifas ?? []),
+    ]
+    const precios = tarifasCancha
+      .map((t) => Number(t.precioHora))
+      .filter((n) => n > 0)
     const minPrecio = precios.length ? Math.min(...precios) : 0
 
     return {

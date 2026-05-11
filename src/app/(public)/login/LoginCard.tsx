@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Mail } from 'lucide-react'
@@ -14,8 +14,17 @@ import {
   type LoginFormData,
 } from '@/validators/auth/auth.schema'
 
+// Solo aceptamos rutas internas como returnTo para evitar open redirects.
+function safeReturnTo(value: string | null): string {
+  if (!value) return '/dashboard'
+  return value.startsWith('/') && !value.startsWith('//')
+    ? value
+    : '/dashboard'
+}
+
 export function LoginCard() {
   const router = useRouter()
+  const params = useSearchParams()
   const login = useLogin()
 
   const {
@@ -27,7 +36,7 @@ export function LoginCard() {
   const onSubmit = handleSubmit(async (data) => {
     try {
       await login.mutateAsync(data)
-      router.push('/dashboard')
+      router.push(safeReturnTo(params.get('returnTo')))
     } catch {
       /* toast handled in interceptor */
     }

@@ -1,17 +1,22 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { use, useState } from 'react'
 import { MapPin, Star, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import Container from '@/components/ui/Container'
+import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { CanchaSVG } from '@/components/public/CanchaSVG'
+import { ReservaForm } from '@/components/reservas/ReservaForm'
 import {
   useCancha,
   useDisponibilidadCancha,
 } from '@/hooks/canchas/useCancha'
+import { useUsuarioActual } from '@/hooks/auth/useAuth'
+import { tokenStore } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import type { DeporteCodigo, SuperficieCodigo } from '@/types'
 
@@ -19,12 +24,35 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
+function formatHoraISO(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-PE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 export default function CanchaDetallePage({ params }: PageProps) {
   const { id } = use(params)
+  const router = useRouter()
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
+  const [reservaOpen, setReservaOpen] = useState(false)
+  const [horaSlot, setHoraSlot] = useState<string | undefined>()
 
   const { data: cancha, isLoading } = useCancha(id)
   const { data: disponibilidad } = useDisponibilidadCancha(id, fecha)
+  const { data: me } = useUsuarioActual()
+
+  const abrirReserva = (hh?: string) => {
+    if (typeof window !== 'undefined' && !tokenStore.getAccess()) {
+      // Sin sesión → al login y al volver vuelve aquí
+      const back = encodeURIComponent(`/cancha/${id}`)
+      router.push(`/login?returnTo=${back}`)
+      return
+    }
+    setHoraSlot(hh)
+    setReservaOpen(true)
+  }
 
   if (isLoading) {
     return (
@@ -57,16 +85,18 @@ export default function CanchaDetallePage({ params }: PageProps) {
   const deporteCodigo = cancha.tipoCancha?.deporte?.codigo?.toUpperCase()
   const superficieCodigo = cancha.superficie?.codigo?.toUpperCase()
 
-  const precios = (cancha.tarifas ?? []).map((t) => ({
-    tipo: t.tipo,
-    precio: Number(t.precioHora),
-  }))
-  const minPrecio = precios.length
-    ? Math.min(...precios.map((p) => p.precio))
-    : 0
-  const maxPrecio = precios.length
-    ? Math.max(...precios.map((p) => p.precio))
-    : 0
+  // Tarifas de la cancha (override + heredadas del tipo)
+  const tarifas = [
+    ...(cancha.tarifas ?? []),
+    ...(cancha.tipoCancha?.tarifas ?? []),
+  ]
+  const precios = tarifas.map((t) => Number(t.precioHora)).filter((n) => n > 0)
+  const minPrecio = precios.length ? Math.min(...precios) : 0
+  const maxPrecio = precios.length ? Math.max(...precios) : 0
+
+  // Determinar si el usuario es dueño/operador (vista de admin no debería
+  // mostrar "Reservar" como cliente)
+  const esCliente = !me?.roles?.length || me.roles.every((r) => r.rol === 'CLIENTE')
 
   return (
     <Container className="py-10">
@@ -139,7 +169,7 @@ export default function CanchaDetallePage({ params }: PageProps) {
                   Horarios disponibles
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Disponibilidad por fecha
+                  Toca un horario libre para reservarlo
                 </p>
               </div>
               <input
@@ -160,14 +190,12 @@ export default function CanchaDetallePage({ params }: PageProps) {
                 </p>
               ) : (
                 disponibilidad.map((slot) => {
-                  const inicio = new Date(slot.inicio).toLocaleTimeString(
-                    'es-PE',
-                    { hour: '2-digit', minute: '2-digit' }
-                  )
+                  const inicio = formatHoraISO(slot.inicio)
                   return (
                     <button
                       key={slot.inicio}
                       disabled={!slot.disponible}
+                      onClick={() => abrirReserva(inicio)}
                       className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                         slot.disponible
                           ? 'border-success bg-success-50 text-success-600 hover:bg-success hover:text-white'
@@ -198,9 +226,21 @@ export default function CanchaDetallePage({ params }: PageProps) {
               </p>
             )}
 
-            <Button fullWidth size="lg" className="mt-5">
-              Reservar ahora
-            </Button>
+            {esCliente ? (
+              <Button
+                fullWidth
+                size="lg"
+                className="mt-5"
+                onClick={() => abrirReserva()}
+              >
+                Reservar ahora
+              </Button>
+            ) : (
+              <p className="mt-5 rounded-xl bg-gray-50 px-3 py-3 text-center text-xs text-gray-500">
+                Estás logueado como administrador. Para reservar, usa una cuenta
+                de cliente.
+              </p>
+            )}
             <Button variant="outline" fullWidth className="mt-2">
               Contactar al dueño
             </Button>
@@ -211,6 +251,30 @@ export default function CanchaDetallePage({ params }: PageProps) {
           </div>
         </aside>
       </div>
+
+      <Modal
+        isOpen={reservaOpen}
+        onClose={() => setReservaOpen(false)}
+        title={`Reservar ${cancha.nombre}`}
+        description={
+          horaSlot
+            ? `Confirmamos tu reserva del ${fecha} a las ${horaSlot}.`
+            : 'Elige fecha y hora de tu reserva.'
+        }
+        size="lg"
+      >
+        <ReservaForm
+          canchas={[{ id: cancha.id, nombre: cancha.nombre }]}
+          defaultCanchaId={cancha.id}
+          defaultFecha={fecha}
+          defaultHoraInicio={horaSlot}
+          onSuccess={() => {
+            setReservaOpen(false)
+            router.push('/reservas')
+          }}
+          onCancel={() => setReservaOpen(false)}
+        />
+      </Modal>
     </Container>
   )
 }
