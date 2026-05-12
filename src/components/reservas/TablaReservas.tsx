@@ -72,7 +72,13 @@ function montoReserva(r: Reserva): { monto: number; estimado: boolean } {
   return { monto, estimado: true }
 }
 
-export function TablaReservas({ reservas }: { reservas: Reserva[] }) {
+interface TablaReservasProps {
+  reservas: Reserva[]
+  /** Si se pasa, hacer click en una fila (fuera de los botones) abre el detalle */
+  onVerDetalle?: (r: Reserva) => void
+}
+
+export function TablaReservas({ reservas, onVerDetalle }: TablaReservasProps) {
   const [tab, setTab] = useState<(typeof tabs)[number]['value']>('TODAS')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [target, setTarget] = useState<Reserva | null>(null)
@@ -142,7 +148,11 @@ export function TablaReservas({ reservas }: { reservas: Reserva[] }) {
                 return (
                   <tr
                     key={r.id}
-                    className="border-t border-gray-100 hover:bg-gray-50"
+                    onClick={() => onVerDetalle?.(r)}
+                    className={cn(
+                      'border-t border-gray-100 hover:bg-gray-50',
+                      onVerDetalle && 'cursor-pointer',
+                    )}
                   >
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
@@ -193,7 +203,10 @@ export function TablaReservas({ reservas }: { reservas: Reserva[] }) {
                     <td className="px-5 py-3">
                       <Badge variant={e.variant}>{e.label}</Badge>
                     </td>
-                    <td className="px-5 py-3">
+                    <td
+                      className="px-5 py-3"
+                      onClick={(ev) => ev.stopPropagation()}
+                    >
                       <div className="flex items-center justify-end gap-1">
                         {r.estado === 'PENDIENTE' && (
                           <Button

@@ -4,12 +4,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import toast from 'react-hot-toast'
 import {
   Building2,
   Hash,
   Image as ImageIcon,
   Mail,
   Phone,
+  Search,
   User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -17,6 +19,7 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { useRegistroEmpresa } from '@/hooks/auth/useAuth'
+import { useConsultarRuc } from '@/hooks/decolecta/useDecolecta'
 import {
   registroEmpresaSchema,
   type RegistroEmpresaFormData,
@@ -25,10 +28,13 @@ import {
 export function RegistroEmpresaCard() {
   const router = useRouter()
   const registro = useRegistroEmpresa()
+  const consultarRuc = useConsultarRuc()
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<RegistroEmpresaFormData>({
     resolver: zodResolver(registroEmpresaSchema),
@@ -45,6 +51,22 @@ export function RegistroEmpresaCard() {
       aceptoTerminos: false,
     },
   })
+
+  const rucValue = watch('ruc')
+
+  const buscarPorRuc = async () => {
+    if (!/^\d{11}$/.test(rucValue ?? '')) {
+      toast.error('El RUC debe tener 11 dígitos', { position: 'top-right' })
+      return
+    }
+    try {
+      const r = await consultarRuc.mutateAsync(rucValue)
+      setValue('empresaNombre', r.razon_social, { shouldValidate: true })
+      toast.success(`SUNAT: ${r.razon_social}`, { position: 'top-right' })
+    } catch {
+      /* el toast del interceptor ya muestra el error */
+    }
+  }
 
   const onSubmit = handleSubmit(async (data) => {
     try {
@@ -92,6 +114,39 @@ export function RegistroEmpresaCard() {
               Datos de la empresa
             </h2>
           </div>
+
+          {/* RUC + botón Buscar SUNAT */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-dark">
+              RUC
+            </label>
+            <div className="flex items-stretch gap-2">
+              <div className="flex-1">
+                <Input
+                  placeholder="20512345678"
+                  leftIcon={<Hash size={16} />}
+                  maxLength={11}
+                  {...register('ruc')}
+                  error={errors.ruc?.message}
+                />
+              </div>
+              <Button
+                type="button"
+                size="md"
+                variant="outline"
+                leftIcon={<Search size={14} />}
+                onClick={buscarPorRuc}
+                loading={consultarRuc.isPending}
+                disabled={(rucValue ?? '').length !== 11}
+              >
+                Buscar SUNAT
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              11 dígitos. Al buscar autocompletamos la razón social desde SUNAT.
+            </p>
+          </div>
+
           <Input
             label="Razón social"
             placeholder="Canchas El Golazo SAC"
@@ -99,25 +154,15 @@ export function RegistroEmpresaCard() {
             {...register('empresaNombre')}
             error={errors.empresaNombre?.message}
           />
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              label="RUC"
-              placeholder="20512345678"
-              leftIcon={<Hash size={16} />}
-              maxLength={11}
-              {...register('ruc')}
-              error={errors.ruc?.message}
-              hint="11 dígitos"
-            />
-            <Input
-              label="Logo (URL)"
-              placeholder="https://..."
-              leftIcon={<ImageIcon size={16} />}
-              {...register('logoUrl')}
-              error={errors.logoUrl?.message}
-              hint="Opcional"
-            />
-          </div>
+
+          <Input
+            label="Logo (URL)"
+            placeholder="https://..."
+            leftIcon={<ImageIcon size={16} />}
+            {...register('logoUrl')}
+            error={errors.logoUrl?.message}
+            hint="Opcional"
+          />
         </section>
 
         {/* SECCIÓN ADMIN */}

@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Mail, Phone, Plus, Search, User, X } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  IdCard,
+  Mail,
+  Phone,
+  Plus,
+  Search,
+  User,
+  X,
+} from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,6 +21,7 @@ import {
   useBuscarUsuarios,
   useCrearClienteWalkin,
 } from '@/hooks/usuarios/useUsuarios'
+import { useConsultarDni } from '@/hooks/decolecta/useDecolecta'
 import {
   clienteWalkinSchema,
   type ClienteWalkinFormData,
@@ -37,11 +47,14 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
 
   const { data: resultados, isLoading } = useBuscarUsuarios(debounced, 8)
   const crearWalkin = useCrearClienteWalkin()
+  const consultarDni = useConsultarDni()
+  const [dni, setDni] = useState('')
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ClienteWalkinFormData>({
     resolver: zodResolver(clienteWalkinSchema),
@@ -52,6 +65,24 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
       email: '',
     },
   })
+
+  const buscarPorDni = async () => {
+    if (!/^\d{8}$/.test(dni)) {
+      toast.error('El DNI debe tener 8 dígitos', { position: 'top-right' })
+      return
+    }
+    try {
+      const r = await consultarDni.mutateAsync(dni)
+      setValue('nombre', r.first_name, { shouldValidate: true })
+      const apellido = [r.first_last_name, r.second_last_name]
+        .filter(Boolean)
+        .join(' ')
+      setValue('apellido', apellido, { shouldValidate: true })
+      toast.success(`RENIEC: ${r.full_name}`, { position: 'top-right' })
+    } catch {
+      /* el toast del interceptor ya muestra el error */
+    }
+  }
 
   const onCrear = handleSubmit(async (data) => {
     const nuevo = await crearWalkin.mutateAsync(data)
@@ -210,6 +241,47 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
             Datos mínimos del cliente. Email es opcional — si no lo tienes,
             puedes registrar solo nombre y teléfono.
           </p>
+
+          {/* Búsqueda por DNI (RENIEC) */}
+          <div className="mb-3">
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+              Buscar por DNI (RENIEC)
+            </label>
+            <div className="flex items-stretch gap-2">
+              <div className="flex-1">
+                <Input
+                  leftIcon={<IdCard size={14} />}
+                  placeholder="8 dígitos"
+                  maxLength={8}
+                  value={dni}
+                  onChange={(e) =>
+                    setDni(e.target.value.replace(/\D/g, '').slice(0, 8))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      buscarPorDni()
+                    }
+                  }}
+                />
+              </div>
+              <Button
+                type="button"
+                size="md"
+                variant="outline"
+                onClick={buscarPorDni}
+                loading={consultarDni.isPending}
+                disabled={dni.length !== 8}
+              >
+                Buscar
+              </Button>
+            </div>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Autocompleta nombre y apellido desde RENIEC. Puedes editar
+              después si fuera necesario.
+            </p>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               label="Nombre"

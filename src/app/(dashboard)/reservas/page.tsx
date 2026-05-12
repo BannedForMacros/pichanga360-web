@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarDays, Search, Table } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
@@ -12,6 +12,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { ReservaForm } from '@/components/reservas/ReservaForm'
 import { TablaReservas } from '@/components/reservas/TablaReservas'
 import { CalendarioSemanal } from '@/components/reservas/CalendarioSemanal'
+import { DetalleReservaModal } from '@/components/reservas/DetalleReservaModal'
 import { MisReservasList } from '@/components/reservas/MisReservasList'
 import { useReservas } from '@/hooks/reservas/useReservas'
 import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
@@ -98,6 +99,14 @@ function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProp
   const [canchaCalendario, setCanchaCalendario] = useState<string | undefined>()
   const [defaultFecha, setDefaultFecha] = useState<string | undefined>()
   const [defaultHora, setDefaultHora] = useState<string | undefined>()
+  // Detalle de reserva al hacer click en calendario/tabla. Guardamos solo el
+  // id y derivamos la reserva desde el array de reservas para que siempre
+  // muestre los datos más frescos del cache de React Query.
+  const [detalleId, setDetalleId] = useState<string | null>(null)
+  const reservaDetalle = useMemo(
+    () => reservas.find((r) => r.id === detalleId) ?? null,
+    [reservas, detalleId],
+  )
 
   // Cuando cargan las canchas, auto-seleccionar la primera para el calendario
   useEffect(() => {
@@ -183,9 +192,13 @@ function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProp
           <CalendarioSemanal
             canchaId={canchaCalendario}
             onCrearReserva={onCrearDesdeCalendario}
+            onClickReserva={(r) => setDetalleId(r.id)}
           />
         ) : (
-          <TablaReservas reservas={reservas} />
+          <TablaReservas
+            reservas={reservas}
+            onVerDetalle={(r) => setDetalleId(r.id)}
+          />
         )}
       </div>
 
@@ -209,6 +222,11 @@ function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProp
           onCancel={() => setOpen(false)}
         />
       </Modal>
+
+      <DetalleReservaModal
+        reserva={reservaDetalle}
+        onClose={() => setDetalleId(null)}
+      />
     </>
   )
 }
