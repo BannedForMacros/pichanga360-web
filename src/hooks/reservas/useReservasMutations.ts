@@ -10,6 +10,11 @@ export interface CreateReservaInput {
   fechaInicio: string // ISO
   fechaFin: string // ISO
   notas?: string
+  /**
+   * Solo lo usa admin/operador para reservar a nombre de un cliente walk-in.
+   * Si no se envía, el backend usa el usuario logueado.
+   */
+  clienteId?: string
 }
 
 /**
