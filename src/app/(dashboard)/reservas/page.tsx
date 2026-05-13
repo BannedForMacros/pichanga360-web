@@ -18,7 +18,7 @@ import { useReservas } from '@/hooks/reservas/useReservas'
 import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
 import { useLocalActual } from '@/hooks/auth/useLocalActual'
 import { useUsuarioActual } from '@/hooks/auth/useAuth'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import type { Reserva } from '@/types'
 
 type Vista = 'calendario' | 'tabla'
@@ -208,8 +208,8 @@ function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProp
         title="Nueva reserva"
         description={
           defaultFecha && defaultHora
-            ? `Pre-rellenamos fecha ${defaultFecha} y hora ${defaultHora}`
-            : 'Asigna una cancha y un horario.'
+            ? `Crearás la reserva para el ${formatDate(defaultFecha)} a las ${defaultHora}. Puedes cambiar la fecha y la hora si te equivocaste.`
+            : 'Registra una reserva a nombre de un cliente. Sigue los pasos numerados de abajo.'
         }
         size="lg"
       >

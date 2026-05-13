@@ -1,0 +1,46 @@
+{
+  "name": "Pichanga360",
+  "short_name": "Pichanga360",
+  "description": "Reserva tu cancha al instante o gestiona tu negocio en un solo lugar.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#0D1B2A",
+  "theme_color": "#1B3F72",
+  "lang": "es-PE",
+  "dir": "ltr",
+  "categories": ["sports", "lifestyle", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Reservas",
+      "short_name": "Reservas",
+      "description": "Ver y crear reservas",
+      "url": "/reservas",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Buscar canchas",
+      "short_name": "Buscar",
+      "description": "Encontrar canchas cerca",
+      "url": "/buscar",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

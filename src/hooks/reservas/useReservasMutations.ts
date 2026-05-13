@@ -61,8 +61,8 @@ export function useCambiarEstadoReserva() {
       const labels: Record<EstadoReserva, string> = {
         PENDIENTE: 'Reserva marcada como pendiente',
         CONFIRMADA: 'Reserva confirmada',
-        EN_CURSO: 'Reserva en curso',
-        COMPLETADA: 'Reserva completada',
+        EN_CURSO: 'Partido iniciado',
+        COMPLETADA: 'Partido terminado',
         CANCELADA: 'Reserva cancelada',
       }
       toast.success(labels[vars.estado], { position: 'top-right' })
@@ -110,7 +110,7 @@ export function useCheckInReserva() {
     mutationFn: (id: string) => api.post(`/reservas/${id}/check-in`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservas'] })
-      toast.success('Check-in realizado', { position: 'top-right' })
+      toast.success('Partido iniciado', { position: 'top-right' })
     },
   })
 }

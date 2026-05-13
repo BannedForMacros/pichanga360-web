@@ -1,9 +1,15 @@
 'use client'
 
-import { useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useMemo, useState } from 'react'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ChevronDown, CreditCard, Hash } from 'lucide-react'
+import {
+  AlertTriangle,
+  Calendar,
+  CreditCard,
+  Hash,
+  User as UserIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
@@ -28,11 +34,11 @@ import type { Cancha, MetodoPago, Usuario } from '@/types'
 interface ReservaFormProps {
   canchas?: Pick<Cancha, 'id' | 'nombre'>[]
   defaultCanchaId?: string
-  /** YYYY-MM-DD, p.ej. la fecha que el usuario eligió en la página pública */
+  /** YYYY-MM-DD */
   defaultFecha?: string
-  /** HH:mm, p.ej. el slot que el usuario clicó */
+  /** HH:mm */
   defaultHoraInicio?: string
-  /** HH:mm, calculado normalmente como horaInicio + 1h */
+  /** HH:mm (default: horaInicio + 1h) */
   defaultHoraFin?: string
   onSuccess?: () => void
   onCancel?: () => void
@@ -44,6 +50,12 @@ function sumarHora(hhmm: string, horas: number): string {
   const hh = String(Math.floor(total / 60) % 24).padStart(2, '0')
   const mm = String(total % 60).padStart(2, '0')
   return `${hh}:${mm}`
+}
+
+function esFechaHoraPasada(fecha?: string, hora?: string): boolean {
+  if (!fecha || !hora) return false
+  const inicio = new Date(`${fecha}T${hora}:00`)
+  return inicio.getTime() < Date.now()
 }
 
 export function ReservaForm({
@@ -59,9 +71,6 @@ export function ReservaForm({
   const registrarPago = useRegistrarPagoReserva()
   const { data: me } = useUsuarioActual()
 
-  // Si el usuario es admin/operador, ofrecemos seleccionar cliente y
-  // registrar el pago en el mismo flujo. Para clientes puros se mantiene
-  // el comportamiento original (reservan a su propio nombre).
   const esAdminOperador =
     !!me?.roles?.some((r) =>
       ['SUPER_ADMIN', 'ADMIN_EMPRESA', 'ADMIN_LOCAL', 'OPERADOR'].includes(
@@ -71,7 +80,6 @@ export function ReservaForm({
 
   const [cliente, setCliente] = useState<Usuario | null>(null)
   const [clienteError, setClienteError] = useState<string | undefined>()
-  const [pagoOpen, setPagoOpen] = useState(false)
   const [registrarPagoNow, setRegistrarPagoNow] = useState(false)
   const [pagoMonto, setPagoMonto] = useState<number>(0)
   const [pagoMetodo, setPagoMetodo] = useState<MetodoPago>('YAPE')
@@ -96,8 +104,14 @@ export function ReservaForm({
     },
   })
 
+  const fechaWatch = useWatch({ control, name: 'fecha' })
+  const horaInicioWatch = useWatch({ control, name: 'horaInicio' })
+  const esPasada = useMemo(
+    () => esFechaHoraPasada(fechaWatch, horaInicioWatch),
+    [fechaWatch, horaInicioWatch],
+  )
+
   const onSubmit = handleSubmit(async (data) => {
-    // Validación: si es admin/operador, exigimos seleccionar cliente
     if (esAdminOperador && !cliente) {
       setClienteError('Selecciona o crea el cliente de la reserva')
       return
@@ -112,7 +126,6 @@ export function ReservaForm({
       clienteId: cliente?.id,
     })
 
-    // Si el admin marcó "registrar pago al toque", lo enviamos enseguida
     if (registrarPagoNow && pagoMonto > 0) {
       try {
         await registrarPago.mutateAsync({
@@ -132,140 +145,159 @@ export function ReservaForm({
   })
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-6">
       {esAdminOperador && (
-        <ClienteSelectorReserva
-          value={cliente}
-          onChange={(c) => {
-            setCliente(c)
-            if (c) setClienteError(undefined)
-          }}
-          error={clienteError}
-        />
+        <FormSection
+          numero={1}
+          icono={<UserIcon size={14} />}
+          titulo="¿Para quién es la reserva?"
+          descripcion="Busca al cliente por nombre o teléfono. Si es la primera vez que viene, créalo con sus datos básicos."
+        >
+          <ClienteSelectorReserva
+            value={cliente}
+            onChange={(c) => {
+              setCliente(c)
+              if (c) setClienteError(undefined)
+            }}
+            error={clienteError}
+          />
+        </FormSection>
       )}
 
-      <Controller
-        name="canchaId"
-        control={control}
-        render={({ field, fieldState }) => (
-          <SearchableSelect
-            label="Cancha"
-            options={canchas.map((c) => ({ label: c.nombre, value: c.id }))}
-            value={field.value}
-            onChange={field.onChange}
-            error={fieldState.error?.message}
-            placeholder="Selecciona una cancha"
-            emptyText="No hay canchas disponibles"
-          />
-        )}
-      />
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <DatePicker
-          label="Fecha"
-          {...register('fecha')}
-          error={errors.fecha?.message}
-        />
-        <TimePicker
-          label="Hora inicio"
-          {...register('horaInicio')}
-          error={errors.horaInicio?.message}
-        />
-        <TimePicker
-          label="Hora fin"
-          {...register('horaFin')}
-          error={errors.horaFin?.message}
-        />
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-dark">
-          Notas
-        </label>
-        <textarea
-          rows={3}
-          {...register('notas')}
-          placeholder="Detalles adicionales (cantidad de jugadores, requerimientos, etc.)"
-          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-
-      {esAdminOperador && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setPagoOpen((v) => !v)}
-            className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:border-primary"
-          >
-            <span className="flex items-center gap-2">
-              <CreditCard size={14} />
-              Registrar pago en este momento
-              <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-bold uppercase text-warning-700">
-                Opcional
-              </span>
-            </span>
-            <ChevronDown
-              size={16}
-              className={cn(
-                'text-gray-400 transition',
-                pagoOpen && 'rotate-180',
-              )}
-            />
-          </button>
-
-          {pagoOpen && (
-            <div className="mt-3 space-y-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={registrarPagoNow}
-                  onChange={(e) => setRegistrarPagoNow(e.target.checked)}
-                  className="accent-primary"
-                />
-                <span>Sí, el cliente paga ahora</span>
-              </label>
-
-              <div
-                className={cn(
-                  'grid gap-3 md:grid-cols-2 transition',
-                  !registrarPagoNow && 'pointer-events-none opacity-50',
-                )}
-              >
-                <Input
-                  label="Monto (S/)"
-                  type="number"
-                  step="0.01"
-                  value={pagoMonto || ''}
-                  onChange={(e) =>
-                    setPagoMonto(parseFloat(e.target.value) || 0)
-                  }
-                  disabled={!registrarPagoNow}
-                />
-                <SearchableSelect
-                  label="Método"
-                  options={METODOS_PAGO_RESERVA.map((m) => ({
-                    label: METODO_PAGO_LABEL[m],
-                    value: m,
-                  }))}
-                  value={pagoMetodo}
-                  onChange={(v) => setPagoMetodo(v as MetodoPago)}
-                  disabled={!registrarPagoNow}
-                />
-              </div>
-              <Input
-                label="Referencia / N° operación"
-                leftIcon={<Hash size={14} />}
-                value={pagoReferencia}
-                onChange={(e) => setPagoReferencia(e.target.value)}
-                placeholder="Opcional, ej. número de Yape"
-                disabled={!registrarPagoNow}
+      <FormSection
+        numero={esAdminOperador ? 2 : 1}
+        icono={<Calendar size={14} />}
+        titulo="¿Cuándo y en qué cancha?"
+        descripcion="Elige la cancha y el horario. La hora de fin se calcula automáticamente, pero puedes ajustarla."
+      >
+        <div className="space-y-4">
+          <Controller
+            name="canchaId"
+            control={control}
+            render={({ field, fieldState }) => (
+              <SearchableSelect
+                label="Cancha"
+                options={canchas.map((c) => ({
+                  label: c.nombre,
+                  value: c.id,
+                }))}
+                value={field.value}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+                placeholder="Selecciona una cancha"
+                emptyText="No hay canchas disponibles"
               />
+            )}
+          />
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <DatePicker
+              label="Fecha del partido"
+              {...register('fecha')}
+              error={errors.fecha?.message}
+            />
+            <TimePicker
+              label="Hora de inicio"
+              {...register('horaInicio')}
+              error={errors.horaInicio?.message}
+            />
+            <TimePicker
+              label="Hora de fin"
+              {...register('horaFin')}
+              error={errors.horaFin?.message}
+            />
+          </div>
+
+          {esPasada && (
+            <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-xs text-warning-700">
+              <AlertTriangle
+                size={16}
+                className="mt-0.5 shrink-0 text-warning-700"
+              />
+              <div>
+                <p className="font-semibold">
+                  Estás registrando una reserva con fecha y hora pasadas.
+                </p>
+                <p className="mt-0.5 leading-relaxed">
+                  Úsalo solo si es una reserva que jugó y olvidaste anotar.
+                  Puedes continuar normalmente, el sistema la guardará igual.
+                </p>
+              </div>
             </div>
           )}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-dark">
+              Notas (opcional)
+            </label>
+            <textarea
+              rows={2}
+              {...register('notas')}
+              placeholder="Ej. 8 jugadores, traen pelota, cancelarán si llueve"
+              className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
         </div>
+      </FormSection>
+
+      {esAdminOperador && (
+        <FormSection
+          numero={3}
+          icono={<CreditCard size={14} />}
+          titulo="¿Te pagó algo por adelantado?"
+          descripcion="Si el cliente te dio una seña, garantía o pago completo al reservar, anótalo aquí. Si no, déjalo en blanco."
+        >
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm">
+              <input
+                type="checkbox"
+                checked={registrarPagoNow}
+                onChange={(e) => setRegistrarPagoNow(e.target.checked)}
+                className="accent-primary"
+              />
+              <span className="font-medium text-dark">
+                Sí, el cliente pagó algo al hacer la reserva
+              </span>
+            </label>
+
+            {registrarPagoNow && (
+              <div className="space-y-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    label="Monto recibido (S/)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pagoMonto || ''}
+                    onChange={(e) =>
+                      setPagoMonto(parseFloat(e.target.value) || 0)
+                    }
+                    placeholder="Ej. 30.00"
+                  />
+                  <SearchableSelect
+                    label="¿Cómo te pagó?"
+                    options={METODOS_PAGO_RESERVA.map((m) => ({
+                      label: METODO_PAGO_LABEL[m],
+                      value: m,
+                    }))}
+                    value={pagoMetodo}
+                    onChange={(v) => setPagoMetodo(v as MetodoPago)}
+                  />
+                </div>
+                <Input
+                  label="Referencia o N° de operación (opcional)"
+                  leftIcon={<Hash size={14} />}
+                  value={pagoReferencia}
+                  onChange={(e) => setPagoReferencia(e.target.value)}
+                  placeholder="Ej. número de Yape u operación bancaria"
+                />
+              </div>
+            )}
+          </div>
+        </FormSection>
       )}
 
-      <div className="flex items-center justify-end gap-2 pt-2">
+      <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
         {onCancel && (
           <Button variant="ghost" type="button" onClick={onCancel}>
             Cancelar
@@ -275,9 +307,48 @@ export function ReservaForm({
           type="submit"
           loading={crear.isPending || registrarPago.isPending}
         >
-          {registrarPagoNow ? 'Crear reserva y registrar pago' : 'Crear reserva'}
+          {registrarPagoNow && pagoMonto > 0
+            ? 'Guardar reserva y pago'
+            : 'Guardar reserva'}
         </Button>
       </div>
     </form>
+  )
+}
+
+function FormSection({
+  numero,
+  icono,
+  titulo,
+  descripcion,
+  children,
+}: {
+  numero: number
+  icono: React.ReactNode
+  titulo: string
+  descripcion: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3">
+      <header className="flex items-start gap-3">
+        <span
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+            'bg-primary text-xs font-bold text-white',
+          )}
+        >
+          {numero}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="flex items-center gap-1.5 text-sm font-bold text-dark">
+            {icono}
+            {titulo}
+          </h3>
+          <p className="mt-0.5 text-xs text-gray-500">{descripcion}</p>
+        </div>
+      </header>
+      <div className="pl-10">{children}</div>
+    </section>
   )
 }

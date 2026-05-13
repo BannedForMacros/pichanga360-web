@@ -241,7 +241,7 @@ export function MisReservasList({ reservas }: Props) {
         isOpen={!!reservaQr}
         onClose={() => setReservaQr(null)}
         title="Tu código QR"
-        description="Muéstralo al llegar al local para hacer check-in."
+        description="Muéstralo al llegar a la cancha. Con él te marcamos el inicio del partido."
         size="md"
       >
         {reservaQr && (

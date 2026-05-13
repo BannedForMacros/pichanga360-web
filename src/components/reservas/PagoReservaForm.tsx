@@ -40,7 +40,7 @@ export function PagoReservaForm({
   } = useForm<RegistrarPagoReservaFormData>({
     resolver: zodResolver(registrarPagoReservaSchema),
     defaultValues: {
-      monto: montoSugerido ?? 0,
+      monto: montoSugerido ?? ('' as unknown as number),
       metodoPago: 'YAPE',
       referencia: '',
     },
@@ -57,19 +57,21 @@ export function PagoReservaForm({
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <Input
-          label="Monto (S/)"
+          label="Monto recibido (S/)"
           type="number"
           step="0.01"
+          min="0"
+          placeholder="Ej. 30.00"
           {...register('monto', { valueAsNumber: true })}
           error={errors.monto?.message}
           hint={
             montoSugerido
-              ? `Sugerido: S/ ${montoSugerido.toFixed(2)}`
-              : undefined
+              ? `Sugerido para cubrir el saldo: S/ ${montoSugerido.toFixed(2)}`
+              : 'Anota lo que el cliente te entregó (puede ser un adelanto).'
           }
         />
         <SearchableSelect
-          label="Método de pago"
+          label="¿Cómo te pagó?"
           options={METODOS_PAGO_RESERVA.map((m) => ({
             label: METODO_PAGO_LABEL[m],
             value: m,
@@ -81,12 +83,12 @@ export function PagoReservaForm({
       </div>
 
       <Input
-        label="Referencia / N° de operación"
+        label="Referencia o N° de operación (opcional)"
         leftIcon={<Hash size={16} />}
-        placeholder="Ej. número de Yape o comprobante"
+        placeholder="Ej. número de Yape u operación bancaria"
         {...register('referencia')}
         error={errors.referencia?.message}
-        hint="Opcional, pero ayuda a confirmar tu pago más rápido."
+        hint="Útil para cuadrar caja después. Si pagó en efectivo, déjalo en blanco."
       />
 
       <div className="flex items-center justify-end gap-2 pt-2">

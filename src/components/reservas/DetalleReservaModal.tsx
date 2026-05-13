@@ -11,9 +11,6 @@ import {
   Phone,
   PlayCircle,
   QrCode,
-  RefreshCcw,
-  Undo2,
-  User,
   X,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
@@ -128,11 +125,15 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
   const { pagado, estimado, saldo } = calcularMontos(reserva)
 
   const puedeConfirmar = reserva.estado === 'PENDIENTE'
-  const puedeCheckIn = reserva.estado === 'CONFIRMADA'
+  const puedeIniciarPartido = reserva.estado === 'CONFIRMADA'
   const puedeCompletar = reserva.estado === 'EN_CURSO'
   const puedeCancelar =
     reserva.estado !== 'COMPLETADA' && reserva.estado !== 'CANCELADA'
-  const puedePago = saldo > 0 && reserva.estado !== 'CANCELADA'
+  // El operador puede registrar pagos en cualquier momento mientras la reserva
+  // siga viva. Antes dependía de saldo > 0, pero si la cancha no tiene tarifa
+  // configurada el saldo era 0 y el botón desaparecía — quedaba sin forma de
+  // anotar un adelanto.
+  const puedePago = reserva.estado !== 'CANCELADA'
 
   return (
     <>
@@ -169,7 +170,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                   Confirmar
                 </Button>
               )}
-              {puedeCheckIn && (
+              {puedeIniciarPartido && (
                 <Button
                   size="sm"
                   variant="primary"
@@ -177,7 +178,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                   loading={checkIn.isPending}
                   onClick={() => checkIn.mutate(reserva.id)}
                 >
-                  Check-in
+                  Iniciar partido
                 </Button>
               )}
               {puedeCompletar && (
@@ -196,7 +197,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                     })
                   }
                 >
-                  Completar
+                  Terminar partido
                 </Button>
               )}
               {puedeCancelar && (
@@ -243,11 +244,6 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                         <Mail size={11} /> {cliente.email}
                       </a>
                     )}
-                  {cliente?.email?.includes('walkin.pichanga360') && (
-                    <span className="inline-flex items-center gap-1 text-gray-400">
-                      <User size={11} /> Walk-in (sin email)
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -300,7 +296,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                   leftIcon={<CreditCard size={14} />}
                   onClick={() => setPagoOpen(true)}
                 >
-                  Registrar pago
+                  {pagado > 0 ? 'Registrar otro pago' : 'Registrar pago'}
                 </Button>
               )}
             </div>
@@ -352,7 +348,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
               leftIcon={<QrCode size={14} />}
               onClick={() => setQrOpen(true)}
             >
-              Ver QR de check-in
+              Ver código QR
             </Button>
           </div>
         </div>
@@ -363,7 +359,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
         isOpen={qrOpen}
         onClose={() => setQrOpen(false)}
         title="Código QR del cliente"
-        description="Escanea este código al recibir al cliente para hacer check-in."
+        description="Escanéalo cuando el cliente llegue a la cancha para iniciar el partido."
         size="md"
       >
         <CodigoQrCard
@@ -377,12 +373,16 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
         isOpen={pagoOpen}
         onClose={() => setPagoOpen(false)}
         title="Registrar pago"
-        description={`Saldo pendiente: ${formatCurrency(saldo || estimado)}`}
+        description={
+          estimado > 0
+            ? `Saldo pendiente: ${formatCurrency(saldo)}`
+            : 'Anota cuánto te pagó el cliente y por qué medio. Puede ser un adelanto, una seña o el pago completo.'
+        }
         size="lg"
       >
         <PagoReservaForm
           reservaId={reserva.id}
-          montoSugerido={saldo || estimado}
+          montoSugerido={saldo > 0 ? saldo : undefined}
           onSuccess={() => setPagoOpen(false)}
           onCancel={() => setPagoOpen(false)}
         />
