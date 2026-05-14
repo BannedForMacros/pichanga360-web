@@ -60,6 +60,21 @@ function isMismoDia(a: Date, b: Date): boolean {
   )
 }
 
+/**
+ * Devuelve YYYY-MM-DD usando la hora LOCAL del navegador.
+ *
+ * Usábamos `toISOString().slice(0, 10)` para sacar la clave del día, pero
+ * eso es UTC y rompía cuando la reserva era de noche local: p. ej. 19:00 PE
+ * (UTC-5) se guarda como 00:00 UTC del día siguiente, así que la reserva
+ * caía un día corrido en el calendario y nunca aparecía donde debía.
+ */
+function localDayKey(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 interface Props {
   canchaId: string | undefined
   /** Click en un slot libre → crear reserva pre-rellenando fecha y hora */
@@ -118,7 +133,7 @@ export function CalendarioSemanal({
   const reservasPorDia = useMemo(() => {
     const m = new Map<string, Reserva[]>()
     for (const r of reservasResp?.data ?? []) {
-      const key = new Date(r.fechaInicio).toISOString().slice(0, 10)
+      const key = localDayKey(new Date(r.fechaInicio))
       if (!m.has(key)) m.set(key, [])
       m.get(key)!.push(r)
     }
@@ -226,7 +241,7 @@ export function CalendarioSemanal({
                       const operativo =
                         !!op && hh >= op.apertura && hhFin <= op.cierre
 
-                      const fechaISO = dia.toISOString().slice(0, 10)
+                      const fechaISO = localDayKey(dia)
                       const reservas = reservasPorDia.get(fechaISO) ?? []
                       const reservaSlot = reservas.find((r) => {
                         const ini = new Date(r.fechaInicio)

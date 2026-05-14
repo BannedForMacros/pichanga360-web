@@ -18,38 +18,83 @@ import { TimePicker } from '@/components/ui/TimePicker'
 import { ClienteSelectorReserva } from './ClienteSelectorReserva'
 import {
   combineDateTime,
+  DURACION_LABEL,
+  DURACIONES_MIN,
+  horaFinFromDuracion,
   reservaSchema,
   type ReservaFormData,
 } from '@/validators/reservas/reserva.schema'
 import { useCrearReserva } from '@/hooks/reservas/useReservasMutations'
 import { useRegistrarPagoReserva } from '@/hooks/reservas/usePagosReserva'
+import { useReservas } from '@/hooks/reservas/useReservas'
+import { useHorariosByCancha } from '@/hooks/horarios/useHorarios'
 import { useUsuarioActual } from '@/hooks/auth/useAuth'
 import {
   METODOS_PAGO_RESERVA,
   METODO_PAGO_LABEL,
 } from '@/validators/reservas/pago-reserva.schema'
 import { cn } from '@/lib/utils'
-import type { Cancha, MetodoPago, Usuario } from '@/types'
+import type { Cancha, DiaSemana, MetodoPago, Usuario } from '@/types'
+
+const DIA_SEMANA_BY_INDEX: DiaSemana[] = [
+  'DOMINGO',
+  'LUNES',
+  'MARTES',
+  'MIERCOLES',
+  'JUEVES',
+  'VIERNES',
+  'SABADO',
+]
+
+const DIA_SEMANA_LABEL: Record<DiaSemana, string> = {
+  LUNES: 'lunes',
+  MARTES: 'martes',
+  MIERCOLES: 'miércoles',
+  JUEVES: 'jueves',
+  VIERNES: 'viernes',
+  SABADO: 'sábado',
+  DOMINGO: 'domingo',
+}
+
+function diaSemanaDeFecha(fechaYmd: string): DiaSemana | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaYmd)) return null
+  const [y, m, d] = fechaYmd.split('-').map((n) => parseInt(n, 10))
+  return DIA_SEMANA_BY_INDEX[new Date(y, m - 1, d).getDay()]
+}
+
+type CanchaParaForm = Pick<Cancha, 'id' | 'nombre'> & {
+  tarifas?: Cancha['tarifas']
+  tipoCancha?: Cancha['tipoCancha']
+}
 
 interface ReservaFormProps {
-  canchas?: Pick<Cancha, 'id' | 'nombre'>[]
+  canchas?: CanchaParaForm[]
   defaultCanchaId?: string
   /** YYYY-MM-DD */
   defaultFecha?: string
   /** HH:mm */
   defaultHoraInicio?: string
-  /** HH:mm (default: horaInicio + 1h) */
-  defaultHoraFin?: string
   onSuccess?: () => void
   onCancel?: () => void
 }
 
-function sumarHora(hhmm: string, horas: number): string {
-  const [h, m] = hhmm.split(':').map((n) => parseInt(n, 10))
-  const total = h * 60 + m + horas * 60
-  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0')
-  const mm = String(total % 60).padStart(2, '0')
-  return `${hh}:${mm}`
+function calcularTotalEstimado(
+  cancha: CanchaParaForm | undefined,
+  horaInicio: string,
+  duracionMin: number,
+): number {
+  if (!cancha) return 0
+  const horas = duracionMin / 60
+  if (horas <= 0) return 0
+  const tarifas = [
+    ...(cancha.tarifas ?? []),
+    ...(cancha.tipoCancha?.tarifas ?? []),
+  ]
+  if (tarifas.length === 0) return 0
+  const aplicable =
+    tarifas.find((t) => horaInicio >= t.horaInicio && horaInicio < t.horaFin) ??
+    tarifas[0]
+  return horas * Number(aplicable.precioHora)
 }
 
 function esFechaHoraPasada(fecha?: string, hora?: string): boolean {
@@ -63,7 +108,6 @@ export function ReservaForm({
   defaultCanchaId,
   defaultFecha,
   defaultHoraInicio,
-  defaultHoraFin,
   onSuccess,
   onCancel,
 }: ReservaFormProps) {
@@ -80,13 +124,16 @@ export function ReservaForm({
 
   const [cliente, setCliente] = useState<Usuario | null>(null)
   const [clienteError, setClienteError] = useState<string | undefined>()
+  // Admin/operador casi siempre registra reservas que ya están confirmadas
+  // (conocido o paga al momento). El switch arranca activo y solo lo
+  // apagan si quieren dejarla en PENDIENTE explícitamente.
+  const [marcarConfirmada, setMarcarConfirmada] = useState(true)
   const [registrarPagoNow, setRegistrarPagoNow] = useState(false)
   const [pagoMonto, setPagoMonto] = useState<number>(0)
   const [pagoMetodo, setPagoMetodo] = useState<MetodoPago>('YAPE')
   const [pagoReferencia, setPagoReferencia] = useState('')
 
   const horaInicio = defaultHoraInicio ?? '18:00'
-  const horaFin = defaultHoraFin ?? sumarHora(horaInicio, 1)
 
   const {
     register,
@@ -99,17 +146,158 @@ export function ReservaForm({
       canchaId: defaultCanchaId ?? '',
       fecha: defaultFecha ?? new Date().toISOString().slice(0, 10),
       horaInicio,
-      horaFin,
+      duracionMin: 60,
       notas: '',
     },
   })
 
   const fechaWatch = useWatch({ control, name: 'fecha' })
   const horaInicioWatch = useWatch({ control, name: 'horaInicio' })
+  const duracionWatch = useWatch({ control, name: 'duracionMin' })
+  const canchaWatch = useWatch({ control, name: 'canchaId' })
+
   const esPasada = useMemo(
     () => esFechaHoraPasada(fechaWatch, horaInicioWatch),
     [fechaWatch, horaInicioWatch],
   )
+
+  // Horarios operativos y reservas existentes de la cancha en ese día.
+  // Los cargamos solo cuando ya hay cancha + fecha elegidas para no hacer
+  // peticiones de más.
+  const { data: horariosCancha } = useHorariosByCancha(
+    canchaWatch || undefined,
+  )
+  const rangoDia = useMemo(() => {
+    if (!fechaWatch || !/^\d{4}-\d{2}-\d{2}$/.test(fechaWatch)) return null
+    const [y, m, d] = fechaWatch.split('-').map((n) => parseInt(n, 10))
+    const desde = new Date(y, m - 1, d, 0, 0, 0).toISOString()
+    const hasta = new Date(y, m - 1, d, 23, 59, 59).toISOString()
+    return { desde, hasta }
+  }, [fechaWatch])
+
+  const { data: reservasDia } = useReservas({
+    canchaId: canchaWatch || undefined,
+    desde: rangoDia?.desde,
+    hasta: rangoDia?.hasta,
+    limit: 100,
+  })
+
+  const diaSemana = useMemo(() => diaSemanaDeFecha(fechaWatch), [fechaWatch])
+
+  const conflicto = useMemo(() => {
+    // No validamos hasta que estén los 4 campos llenos. Tampoco si la
+    // reserva es pasada (puede haberse jugado fuera de horario, no
+    // bloqueamos al operador que la está anotando con retraso).
+    if (!canchaWatch || !fechaWatch || !horaInicioWatch || !duracionWatch)
+      return null
+    if (esPasada) return null
+
+    const horaFin = horaFinFromDuracion(horaInicioWatch, duracionWatch)
+    if (!horaFin) return null
+
+    // Cancha cerrada ese día.
+    if (diaSemana) {
+      const horario = horariosCancha?.find((h) => h.diaSemana === diaSemana)
+      if (!horario) {
+        return {
+          tipo: 'sin-horario' as const,
+          mensaje: `La cancha no atiende los ${DIA_SEMANA_LABEL[diaSemana]}. Elige otro día u otra cancha.`,
+        }
+      }
+      if (
+        horaInicioWatch < horario.horaApertura ||
+        horaFin > horario.horaCierre
+      ) {
+        return {
+          tipo: 'fuera-de-horario' as const,
+          mensaje: `La cancha atiende los ${DIA_SEMANA_LABEL[diaSemana]} de ${horario.horaApertura} a ${horario.horaCierre}. Ajusta la hora o la duración.`,
+        }
+      }
+    }
+
+    // Overlap con otra reserva activa.
+    const [yy, mm, dd] = fechaWatch.split('-').map((n) => parseInt(n, 10))
+    const [hi, mi] = horaInicioWatch.split(':').map((n) => parseInt(n, 10))
+    const [hf, mf] = horaFin.split(':').map((n) => parseInt(n, 10))
+    const slotIni = new Date(yy, mm - 1, dd, hi, mi).getTime()
+    const slotFin = new Date(yy, mm - 1, dd, hf, mf).getTime()
+
+    const pisada = reservasDia?.data.find((r) => {
+      if (['CANCELADA', 'COMPLETADA'].includes(r.estado)) return false
+      const ini = new Date(r.fechaInicio).getTime()
+      const fin = new Date(r.fechaFin).getTime()
+      return ini < slotFin && fin > slotIni
+    })
+    if (pisada) {
+      const nombre = pisada.cliente
+        ? `${pisada.cliente.nombre} ${pisada.cliente.apellido ?? ''}`.trim()
+        : null
+      const desde = new Date(pisada.fechaInicio).toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      const hasta = new Date(pisada.fechaFin).toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      return {
+        tipo: 'overlap' as const,
+        mensaje: nombre
+          ? `Esa cancha ya está reservada de ${desde} a ${hasta} a nombre de ${nombre}.`
+          : `Esa cancha ya está reservada de ${desde} a ${hasta}.`,
+      }
+    }
+
+    return null
+  }, [
+    canchaWatch,
+    fechaWatch,
+    horaInicioWatch,
+    duracionWatch,
+    esPasada,
+    diaSemana,
+    horariosCancha,
+    reservasDia,
+  ])
+
+  // Opciones de duración: las que no harían cruzar medianoche según la
+  // hora de inicio elegida. Si la hora de inicio aún no es válida,
+  // mostramos todas y dejamos que el schema avise al enviar.
+  const opcionesDuracion = useMemo(() => {
+    const validHora = /^\d{2}:\d{2}$/.test(horaInicioWatch ?? '')
+    return DURACIONES_MIN.map((min) => {
+      const fin = validHora
+        ? horaFinFromDuracion(horaInicioWatch, min)
+        : 'pendiente'
+      const cabe = fin !== null
+      return {
+        value: String(min),
+        label: DURACION_LABEL[min],
+        description: cabe && fin !== 'pendiente' ? `Termina a las ${fin}` : 'No cabe antes de medianoche',
+        disabled: !cabe,
+      }
+    }).filter((o) => !o.disabled).map(({ disabled: _disabled, ...rest }) => rest)
+  }, [horaInicioWatch])
+
+  const horaFinPreview = useMemo(() => {
+    if (!horaInicioWatch || !duracionWatch) return null
+    return horaFinFromDuracion(horaInicioWatch, duracionWatch)
+  }, [horaInicioWatch, duracionWatch])
+
+  const canchaSeleccionada = useMemo(
+    () => canchas.find((c) => c.id === canchaWatch),
+    [canchas, canchaWatch],
+  )
+  const totalEstimado = useMemo(
+    () =>
+      calcularTotalEstimado(
+        canchaSeleccionada,
+        horaInicioWatch ?? '',
+        duracionWatch ?? 0,
+      ),
+    [canchaSeleccionada, horaInicioWatch, duracionWatch],
+  )
+  const saldoEstimado = Math.max(0, totalEstimado - pagoMonto)
 
   const onSubmit = handleSubmit(async (data) => {
     if (esAdminOperador && !cliente) {
@@ -118,12 +306,17 @@ export function ReservaForm({
     }
     setClienteError(undefined)
 
+    const horaFin = horaFinFromDuracion(data.horaInicio, data.duracionMin)
+    if (!horaFin) return // el schema ya lo bloqueó, defensivo
+
     const reserva = await crear.mutateAsync({
       canchaId: data.canchaId,
       fechaInicio: combineDateTime(data.fecha, data.horaInicio),
-      fechaFin: combineDateTime(data.fecha, data.horaFin),
+      fechaFin: combineDateTime(data.fecha, horaFin),
       notas: data.notas || undefined,
       clienteId: cliente?.id,
+      estadoInicial:
+        esAdminOperador && marcarConfirmada ? 'CONFIRMADA' : undefined,
     })
 
     if (registrarPagoNow && pagoMonto > 0) {
@@ -168,7 +361,7 @@ export function ReservaForm({
         numero={esAdminOperador ? 2 : 1}
         icono={<Calendar size={14} />}
         titulo="¿Cuándo y en qué cancha?"
-        descripcion="Elige la cancha y el horario. La hora de fin se calcula automáticamente, pero puedes ajustarla."
+        descripcion="Elige la cancha, la hora de inicio y cuánto va a durar el alquiler. Mínimo 1 hora, en bloques de 30 minutos."
       >
         <div className="space-y-4">
           <Controller
@@ -198,15 +391,72 @@ export function ReservaForm({
             />
             <TimePicker
               label="Hora de inicio"
+              step={1800}
               {...register('horaInicio')}
               error={errors.horaInicio?.message}
             />
-            <TimePicker
-              label="Hora de fin"
-              {...register('horaFin')}
-              error={errors.horaFin?.message}
+            <Controller
+              name="duracionMin"
+              control={control}
+              render={({ field, fieldState }) => (
+                <SearchableSelect
+                  label="Duración del alquiler"
+                  options={opcionesDuracion}
+                  value={field.value ? String(field.value) : undefined}
+                  onChange={(v) => field.onChange(parseInt(v, 10))}
+                  error={fieldState.error?.message}
+                  placeholder="¿Cuánto durará?"
+                />
+              )}
             />
           </div>
+
+          {horaFinPreview && (
+            <p className="text-xs text-gray-600">
+              El partido termina a las{' '}
+              <span className="font-semibold text-dark">{horaFinPreview}</span>{' '}
+              del mismo día.
+            </p>
+          )}
+
+          {conflicto && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+              <AlertTriangle
+                size={16}
+                className="mt-0.5 shrink-0 text-red-600"
+              />
+              <div>
+                <p className="font-semibold">
+                  {conflicto.tipo === 'overlap'
+                    ? 'La cancha ya está reservada en ese horario'
+                    : conflicto.tipo === 'sin-horario'
+                      ? 'La cancha está cerrada ese día'
+                      : 'Horario fuera del rango de atención'}
+                </p>
+                <p className="mt-0.5 leading-relaxed">{conflicto.mensaje}</p>
+              </div>
+            </div>
+          )}
+
+          {esAdminOperador && (
+            <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+              <Switch
+                checked={marcarConfirmada}
+                onChange={setMarcarConfirmada}
+                ariaLabel="Marcar la reserva como confirmada al crearla"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-dark">
+                  Marcar como confirmada al guardar
+                </p>
+                <p className="text-xs text-gray-500">
+                  {marcarConfirmada
+                    ? 'Se guardará lista para jugar. Úsalo cuando el cliente ya pagó o es conocido y vendrá seguro.'
+                    : 'Se guardará como pendiente. Tendrás que confirmarla después manualmente.'}
+                </p>
+              </div>
+            </div>
+          )}
 
           {esPasada && (
             <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-xs text-warning-700">
@@ -262,6 +512,26 @@ export function ReservaForm({
 
             {registrarPagoNow && (
               <div className="space-y-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3">
+                {totalEstimado > 0 && (
+                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-white p-2 text-center">
+                    <MiniTotal
+                      label="Total"
+                      valor={`S/ ${totalEstimado.toFixed(2)}`}
+                      tono="dark"
+                    />
+                    <MiniTotal
+                      label="Recibido"
+                      valor={`S/ ${pagoMonto.toFixed(2)}`}
+                      tono="success"
+                    />
+                    <MiniTotal
+                      label="Saldo"
+                      valor={`S/ ${saldoEstimado.toFixed(2)}`}
+                      tono={saldoEstimado > 0 ? 'warning' : 'muted'}
+                    />
+                  </div>
+                )}
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <Input
                     label="Monto recibido (S/)"
@@ -273,6 +543,11 @@ export function ReservaForm({
                       setPagoMonto(parseFloat(e.target.value) || 0)
                     }
                     placeholder="Ej. 30.00"
+                    hint={
+                      totalEstimado > 0
+                        ? `El alquiler completo cuesta S/ ${totalEstimado.toFixed(2)}.`
+                        : 'Anota lo que te entregó el cliente.'
+                    }
                   />
                   <SearchableSelect
                     label="¿Cómo te pagó?"
@@ -305,6 +580,7 @@ export function ReservaForm({
         )}
         <Button
           type="submit"
+          disabled={!!conflicto}
           loading={crear.isPending || registrarPago.isPending}
         >
           {registrarPagoNow && pagoMonto > 0
@@ -313,6 +589,65 @@ export function ReservaForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+type TonoTotal = 'dark' | 'success' | 'warning' | 'muted'
+
+const TONO_TOTAL: Record<TonoTotal, string> = {
+  dark: 'text-dark',
+  success: 'text-success-700',
+  warning: 'text-warning-700',
+  muted: 'text-gray-500',
+}
+
+function MiniTotal({
+  label,
+  valor,
+  tono,
+}: {
+  label: string
+  valor: string
+  tono: TonoTotal
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <p className={`mt-0.5 text-xs font-bold ${TONO_TOTAL[tono]}`}>{valor}</p>
+    </div>
+  )
+}
+
+function Switch({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition',
+        checked ? 'bg-success' : 'bg-gray-300',
+      )}
+    >
+      <span
+        className={cn(
+          'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
+          checked ? 'translate-x-5' : 'translate-x-0.5',
+        )}
+      />
+    </button>
   )
 }
 

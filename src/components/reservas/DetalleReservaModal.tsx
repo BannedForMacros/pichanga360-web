@@ -383,6 +383,8 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
         <PagoReservaForm
           reservaId={reserva.id}
           montoSugerido={saldo > 0 ? saldo : undefined}
+          total={estimado > 0 ? estimado : undefined}
+          pagado={pagado}
           onSuccess={() => setPagoOpen(false)}
           onCancel={() => setPagoOpen(false)}
         />

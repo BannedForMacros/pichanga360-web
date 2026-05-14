@@ -15,6 +15,11 @@ export interface CreateReservaInput {
    * Si no se envía, el backend usa el usuario logueado.
    */
   clienteId?: string
+  /**
+   * Solo admin/operador. 'CONFIRMADA' crea la reserva ya confirmada
+   * (cliente conocido o paga al momento). Si no se envía, nace en PENDIENTE.
+   */
+  estadoInicial?: 'PENDIENTE' | 'CONFIRMADA'
 }
 
 /**
