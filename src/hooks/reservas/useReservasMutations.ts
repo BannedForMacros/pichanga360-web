@@ -39,6 +39,44 @@ export function useCrearReserva() {
   })
 }
 
+export interface UpdateReservaInput {
+  canchaId?: string
+  /** ISO completo */
+  fechaInicio?: string
+  /** ISO completo */
+  fechaFin?: string
+  notas?: string
+  /** Queda registrado en la auditoría de la reserva */
+  motivo?: string
+}
+
+/**
+ * Backend: PATCH /reservas/:id
+ *
+ * Solo edita datos logísticos (cancha, fecha, hora, notas). No cambia estado
+ * ni cliente. Solo admin/operador del local, y solo si la reserva está en
+ * PENDIENTE o CONFIRMADA.
+ */
+export function useActualizarReserva() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string
+      data: UpdateReservaInput
+    }) => {
+      const { data: reserva } = await api.patch<Reserva>(`/reservas/${id}`, data)
+      return reserva
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservas'] })
+      toast.success('Reserva actualizada', { position: 'top-right' })
+    },
+  })
+}
+
 /**
  * Backend: PATCH /reservas/:id/estado
  * Body: { estado, motivo? }

@@ -6,7 +6,10 @@ import { Hash } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
-import { useRegistrarPagoReserva } from '@/hooks/reservas/usePagosReserva'
+import {
+  useActualizarPagoReserva,
+  useRegistrarPagoReserva,
+} from '@/hooks/reservas/usePagosReserva'
 import {
   METODOS_PAGO_RESERVA,
   METODO_PAGO_LABEL,
@@ -14,7 +17,7 @@ import {
   type RegistrarPagoReservaFormData,
 } from '@/validators/reservas/pago-reserva.schema'
 import { formatCurrency } from '@/lib/utils'
-import type { MetodoPago } from '@/types'
+import type { MetodoPago, PagoReserva } from '@/types'
 
 interface Props {
   reservaId: string
@@ -24,6 +27,11 @@ interface Props {
   total?: number
   /** Pagado hasta el momento (suma de pagos anteriores). */
   pagado?: number
+  /**
+   * Si viene, el form arranca en modo edición y pre-llena con los datos del
+   * pago. Solo se permite editar pagos PENDIENTES (el backend lo valida).
+   */
+  pago?: PagoReserva
   onSuccess?: () => void
   onCancel?: () => void
 }
@@ -33,10 +41,13 @@ export function PagoReservaForm({
   montoSugerido,
   total,
   pagado,
+  pago,
   onSuccess,
   onCancel,
 }: Props) {
   const registrar = useRegistrarPagoReserva()
+  const actualizar = useActualizarPagoReserva()
+  const esEdicion = !!pago
 
   const {
     register,
@@ -47,16 +58,22 @@ export function PagoReservaForm({
   } = useForm<RegistrarPagoReservaFormData>({
     resolver: zodResolver(registrarPagoReservaSchema),
     defaultValues: {
-      monto: montoSugerido ?? ('' as unknown as number),
-      metodoPago: 'YAPE',
-      referencia: '',
+      monto: pago
+        ? Number(pago.monto)
+        : (montoSugerido ?? ('' as unknown as number)),
+      metodoPago: pago?.metodoPago ?? 'YAPE',
+      referencia: pago?.referencia ?? '',
     },
   })
 
   const metodoPago = watch('metodoPago')
 
   const onSubmit = handleSubmit(async (data) => {
-    await registrar.mutateAsync({ reservaId, data })
+    if (esEdicion && pago) {
+      await actualizar.mutateAsync({ id: pago.id, data })
+    } else {
+      await registrar.mutateAsync({ reservaId, data })
+    }
     onSuccess?.()
   })
 
@@ -123,8 +140,11 @@ export function PagoReservaForm({
             Cancelar
           </Button>
         )}
-        <Button type="submit" loading={registrar.isPending}>
-          Registrar pago
+        <Button
+          type="submit"
+          loading={registrar.isPending || actualizar.isPending}
+        >
+          {esEdicion ? 'Guardar cambios' : 'Registrar pago'}
         </Button>
       </div>
     </form>

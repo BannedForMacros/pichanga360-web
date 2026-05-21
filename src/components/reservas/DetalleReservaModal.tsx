@@ -8,9 +8,12 @@ import {
   CreditCard,
   Goal,
   Mail,
+  Pencil,
   Phone,
   PlayCircle,
   QrCode,
+  RotateCcw,
+  Trash2,
   X,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
@@ -20,12 +23,19 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { CodigoQrCard } from './CodigoQrCard'
 import { PagoReservaForm } from './PagoReservaForm'
+import { ReservaForm } from './ReservaForm'
 import {
   useCambiarEstadoReserva,
   useCancelarReserva,
   useCheckInReserva,
 } from '@/hooks/reservas/useReservasMutations'
-import { cn, formatCurrency, formatDate } from '@/lib/utils'
+import {
+  useConfirmarPagoReserva,
+  useDevolverPagoReserva,
+  useEliminarPagoReserva,
+} from '@/hooks/reservas/usePagosReserva'
+import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import type { EstadoReserva, PagoReserva, Reserva } from '@/types'
 
 const estadoBadge: Record<
@@ -104,10 +114,21 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
   const cancelar = useCancelarReserva()
   const cambiarEstado = useCambiarEstadoReserva()
   const checkIn = useCheckInReserva()
+  const confirmarPago = useConfirmarPagoReserva()
+  const devolverPago = useDevolverPagoReserva()
+  const eliminarPago = useEliminarPagoReserva()
+  // Para el modo edición de la reserva necesitamos la lista de canchas del
+  // local (por si el operador quiere moverla a otra cancha del mismo local).
+  const { data: canchasLocal } = useCanchasByLocal(
+    reserva?.cancha?.localId ?? undefined,
+  )
 
   const [confirmCancelarOpen, setConfirmCancelarOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
   const [pagoOpen, setPagoOpen] = useState(false)
+  const [editarOpen, setEditarOpen] = useState(false)
+  const [pagoEditando, setPagoEditando] = useState<PagoReserva | null>(null)
+  const [pagoAEliminar, setPagoAEliminar] = useState<PagoReserva | null>(null)
 
   if (!reserva) {
     return (
@@ -129,6 +150,10 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
   const puedeCompletar = reserva.estado === 'EN_CURSO'
   const puedeCancelar =
     reserva.estado !== 'COMPLETADA' && reserva.estado !== 'CANCELADA'
+  // Editar solo aplica antes de que el partido empiece. Una vez EN_CURSO,
+  // COMPLETADA o CANCELADA, el flujo correcto es cancelar+rehacer.
+  const puedeEditar =
+    reserva.estado === 'PENDIENTE' || reserva.estado === 'CONFIRMADA'
   // El operador puede registrar pagos en cualquier momento mientras la reserva
   // siga viva. Antes dependía de saldo > 0, pero si la cancha no tiene tarifa
   // configurada el saldo era 0 y el botón desaparecía — quedaba sin forma de
@@ -198,6 +223,16 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                   }
                 >
                   Terminar partido
+                </Button>
+              )}
+              {puedeEditar && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<Pencil size={14} />}
+                  onClick={() => setEditarOpen(true)}
+                >
+                  Editar
                 </Button>
               )}
               {puedeCancelar && (
@@ -308,7 +343,7 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                     key={p.id}
                     className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
                   >
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold text-dark">
                         {formatCurrency(Number(p.monto))}
                         <span className="ml-2 text-xs font-normal text-gray-500">
@@ -321,9 +356,66 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                         </p>
                       )}
                     </div>
-                    <Badge variant={ESTADO_PAGO_VARIANT[p.estado]} size="sm">
-                      {p.estado}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={ESTADO_PAGO_VARIANT[p.estado]} size="sm">
+                        {p.estado}
+                      </Badge>
+                      {p.estado === 'PENDIENTE' && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            leftIcon={<Check size={14} />}
+                            loading={
+                              confirmarPago.isPending &&
+                              confirmarPago.variables?.id === p.id
+                            }
+                            onClick={() =>
+                              confirmarPago.mutate({ id: p.id })
+                            }
+                            className="text-success-700 hover:bg-success-50"
+                            title="Marcar como pagado"
+                          >
+                            Pagado
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            leftIcon={<Pencil size={14} />}
+                            onClick={() => setPagoEditando(p)}
+                            title="Editar pago"
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            leftIcon={<Trash2 size={14} />}
+                            onClick={() => setPagoAEliminar(p)}
+                            className="text-red-600 hover:bg-red-50"
+                            title="Eliminar pago"
+                          >
+                            Eliminar
+                          </Button>
+                        </>
+                      )}
+                      {p.estado === 'PAGADO' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          leftIcon={<RotateCcw size={14} />}
+                          loading={
+                            devolverPago.isPending &&
+                            devolverPago.variables === p.id
+                          }
+                          onClick={() => devolverPago.mutate(p.id)}
+                          className="text-warning-700 hover:bg-warning/10"
+                          title="Devolver el pago al cliente"
+                        >
+                          Devolver
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -404,6 +496,62 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
           onClose()
         }}
         onCancel={() => setConfirmCancelarOpen(false)}
+      />
+
+      {/* Editar reserva */}
+      <Modal
+        isOpen={editarOpen}
+        onClose={() => setEditarOpen(false)}
+        title="Editar reserva"
+        description="Cambia la cancha, fecha, hora o notas. El cliente y el estado se manejan desde el detalle."
+        size="lg"
+      >
+        <ReservaForm
+          reserva={reserva}
+          canchas={canchasLocal ?? []}
+          onSuccess={() => setEditarOpen(false)}
+          onCancel={() => setEditarOpen(false)}
+        />
+      </Modal>
+
+      {/* Editar pago */}
+      <Modal
+        isOpen={!!pagoEditando}
+        onClose={() => setPagoEditando(null)}
+        title="Editar pago"
+        description="Corrige el monto, método o referencia. Solo aplica mientras el pago siga pendiente."
+        size="lg"
+      >
+        {pagoEditando && (
+          <PagoReservaForm
+            reservaId={reserva.id}
+            pago={pagoEditando}
+            total={estimado > 0 ? estimado : undefined}
+            pagado={pagado}
+            onSuccess={() => setPagoEditando(null)}
+            onCancel={() => setPagoEditando(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Confirmar eliminar pago */}
+      <ConfirmModal
+        isOpen={!!pagoAEliminar}
+        title="Eliminar pago"
+        description={
+          pagoAEliminar
+            ? `¿Eliminar el pago de ${formatCurrency(Number(pagoAEliminar.monto))} (${fmtMetodo(pagoAEliminar.metodoPago)})? Solo se borran pagos pendientes; los confirmados quedan en el historial.`
+            : ''
+        }
+        variant="danger"
+        confirmLabel="Sí, eliminar"
+        loading={eliminarPago.isPending}
+        onConfirm={async () => {
+          if (!pagoAEliminar) return
+          await eliminarPago.mutateAsync(pagoAEliminar.id)
+          setPagoAEliminar(null)
+        }}
+        onCancel={() => setPagoAEliminar(null)}
       />
     </>
   )

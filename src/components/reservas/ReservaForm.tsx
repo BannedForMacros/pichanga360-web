@@ -24,7 +24,10 @@ import {
   reservaSchema,
   type ReservaFormData,
 } from '@/validators/reservas/reserva.schema'
-import { useCrearReserva } from '@/hooks/reservas/useReservasMutations'
+import {
+  useActualizarReserva,
+  useCrearReserva,
+} from '@/hooks/reservas/useReservasMutations'
 import { useRegistrarPagoReserva } from '@/hooks/reservas/usePagosReserva'
 import { useReservas } from '@/hooks/reservas/useReservas'
 import { useHorariosByCancha } from '@/hooks/horarios/useHorarios'
@@ -34,7 +37,7 @@ import {
   METODO_PAGO_LABEL,
 } from '@/validators/reservas/pago-reserva.schema'
 import { cn } from '@/lib/utils'
-import type { Cancha, DiaSemana, MetodoPago, Usuario } from '@/types'
+import type { Cancha, DiaSemana, MetodoPago, Reserva, Usuario } from '@/types'
 
 const DIA_SEMANA_BY_INDEX: DiaSemana[] = [
   'DOMINGO',
@@ -74,8 +77,33 @@ interface ReservaFormProps {
   defaultFecha?: string
   /** HH:mm */
   defaultHoraInicio?: string
+  /**
+   * Si viene, el form arranca en modo edición: pre-llena los campos con los
+   * datos de la reserva existente y al guardar hace PATCH en vez de POST.
+   * El cliente no se puede cambiar (cancelar + crear nueva si hace falta).
+   */
+  reserva?: Reserva
   onSuccess?: () => void
   onCancel?: () => void
+}
+
+function inicialesDesdeReserva(r: Reserva): {
+  fecha: string
+  horaInicio: string
+  duracionMin: number
+} {
+  const ini = new Date(r.fechaInicio)
+  const fin = new Date(r.fechaFin)
+  const y = ini.getFullYear()
+  const m = String(ini.getMonth() + 1).padStart(2, '0')
+  const d = String(ini.getDate()).padStart(2, '0')
+  const hh = String(ini.getHours()).padStart(2, '0')
+  const mm = String(ini.getMinutes()).padStart(2, '0')
+  return {
+    fecha: `${y}-${m}-${d}`,
+    horaInicio: `${hh}:${mm}`,
+    duracionMin: Math.round((fin.getTime() - ini.getTime()) / 60000),
+  }
 }
 
 function calcularTotalEstimado(
@@ -108,12 +136,20 @@ export function ReservaForm({
   defaultCanchaId,
   defaultFecha,
   defaultHoraInicio,
+  reserva,
   onSuccess,
   onCancel,
 }: ReservaFormProps) {
   const crear = useCrearReserva()
+  const actualizar = useActualizarReserva()
   const registrarPago = useRegistrarPagoReserva()
   const { data: me } = useUsuarioActual()
+
+  const esEdicion = !!reserva
+  const inicialesEdicion = useMemo(
+    () => (reserva ? inicialesDesdeReserva(reserva) : null),
+    [reserva],
+  )
 
   const esAdminOperador =
     !!me?.roles?.some((r) =>
@@ -122,18 +158,21 @@ export function ReservaForm({
       ),
     )
 
-  const [cliente, setCliente] = useState<Usuario | null>(null)
+  const [cliente, setCliente] = useState<Usuario | null>(
+    (reserva?.cliente as Usuario | null | undefined) ?? null,
+  )
   const [clienteError, setClienteError] = useState<string | undefined>()
   // Admin/operador casi siempre registra reservas que ya están confirmadas
   // (conocido o paga al momento). El switch arranca activo y solo lo
-  // apagan si quieren dejarla en PENDIENTE explícitamente.
+  // apagan si quieren dejarla en PENDIENTE explícitamente. En modo edición
+  // no aplica (el estado se cambia desde el detalle de la reserva).
   const [marcarConfirmada, setMarcarConfirmada] = useState(true)
   const [registrarPagoNow, setRegistrarPagoNow] = useState(false)
   const [pagoMonto, setPagoMonto] = useState<number>(0)
   const [pagoMetodo, setPagoMetodo] = useState<MetodoPago>('YAPE')
   const [pagoReferencia, setPagoReferencia] = useState('')
 
-  const horaInicio = defaultHoraInicio ?? '18:00'
+  const horaInicio = inicialesEdicion?.horaInicio ?? defaultHoraInicio ?? '18:00'
 
   const {
     register,
@@ -143,11 +182,15 @@ export function ReservaForm({
   } = useForm<ReservaFormData>({
     resolver: zodResolver(reservaSchema),
     defaultValues: {
-      canchaId: defaultCanchaId ?? '',
-      fecha: defaultFecha ?? new Date().toISOString().slice(0, 10),
+      canchaId:
+        inicialesEdicion ? reserva!.canchaId : defaultCanchaId ?? '',
+      fecha:
+        inicialesEdicion?.fecha ??
+        defaultFecha ??
+        new Date().toISOString().slice(0, 10),
       horaInicio,
-      duracionMin: 60,
-      notas: '',
+      duracionMin: inicialesEdicion?.duracionMin ?? 60,
+      notas: reserva?.notas ?? '',
     },
   })
 
@@ -300,7 +343,7 @@ export function ReservaForm({
   const saldoEstimado = Math.max(0, totalEstimado - pagoMonto)
 
   const onSubmit = handleSubmit(async (data) => {
-    if (esAdminOperador && !cliente) {
+    if (!esEdicion && esAdminOperador && !cliente) {
       setClienteError('Selecciona o crea el cliente de la reserva')
       return
     }
@@ -309,7 +352,21 @@ export function ReservaForm({
     const horaFin = horaFinFromDuracion(data.horaInicio, data.duracionMin)
     if (!horaFin) return // el schema ya lo bloqueó, defensivo
 
-    const reserva = await crear.mutateAsync({
+    if (esEdicion && reserva) {
+      await actualizar.mutateAsync({
+        id: reserva.id,
+        data: {
+          canchaId: data.canchaId,
+          fechaInicio: combineDateTime(data.fecha, data.horaInicio),
+          fechaFin: combineDateTime(data.fecha, horaFin),
+          notas: data.notas || '',
+        },
+      })
+      onSuccess?.()
+      return
+    }
+
+    const reservaCreada = await crear.mutateAsync({
       canchaId: data.canchaId,
       fechaInicio: combineDateTime(data.fecha, data.horaInicio),
       fechaFin: combineDateTime(data.fecha, horaFin),
@@ -322,7 +379,7 @@ export function ReservaForm({
     if (registrarPagoNow && pagoMonto > 0) {
       try {
         await registrarPago.mutateAsync({
-          reservaId: reserva.id,
+          reservaId: reservaCreada.id,
           data: {
             monto: pagoMonto,
             metodoPago: pagoMetodo,
@@ -337,9 +394,27 @@ export function ReservaForm({
     onSuccess?.()
   })
 
+  // En modo edición no mostramos el selector de cliente (el cliente no se
+  // cambia desde aquí) ni el paso de "registrar pago al crear" (esos pagos
+  // se manejan desde el detalle). El switch "marcar confirmada" tampoco
+  // aplica porque el estado se cambia con los botones del detalle.
+  const mostrarSelectorCliente = !esEdicion && esAdminOperador
+  const mostrarConfirmarYPago = !esEdicion && esAdminOperador
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {esAdminOperador && (
+      {esEdicion && reserva?.cliente && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-600">
+          Editando la reserva de{' '}
+          <span className="font-semibold text-dark">
+            {reserva.cliente.nombre} {reserva.cliente.apellido ?? ''}
+          </span>
+          . El cliente no se cambia desde aquí — si te equivocaste de persona,
+          cancela esta reserva y crea una nueva.
+        </div>
+      )}
+
+      {mostrarSelectorCliente && (
         <FormSection
           numero={1}
           icono={<UserIcon size={14} />}
@@ -358,7 +433,7 @@ export function ReservaForm({
       )}
 
       <FormSection
-        numero={esAdminOperador ? 2 : 1}
+        numero={mostrarSelectorCliente ? 2 : 1}
         icono={<Calendar size={14} />}
         titulo="¿Cuándo y en qué cancha?"
         descripcion="Elige la cancha, la hora de inicio y cuánto va a durar el alquiler. Mínimo 1 hora, en bloques de 30 minutos."
@@ -438,7 +513,7 @@ export function ReservaForm({
             </div>
           )}
 
-          {esAdminOperador && (
+          {mostrarConfirmarYPago && (
             <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
               <Switch
                 checked={marcarConfirmada}
@@ -490,7 +565,7 @@ export function ReservaForm({
         </div>
       </FormSection>
 
-      {esAdminOperador && (
+      {mostrarConfirmarYPago && (
         <FormSection
           numero={3}
           icono={<CreditCard size={14} />}
@@ -581,11 +656,15 @@ export function ReservaForm({
         <Button
           type="submit"
           disabled={!!conflicto}
-          loading={crear.isPending || registrarPago.isPending}
+          loading={
+            crear.isPending || actualizar.isPending || registrarPago.isPending
+          }
         >
-          {registrarPagoNow && pagoMonto > 0
-            ? 'Guardar reserva y pago'
-            : 'Guardar reserva'}
+          {esEdicion
+            ? 'Guardar cambios'
+            : registrarPagoNow && pagoMonto > 0
+              ? 'Guardar reserva y pago'
+              : 'Guardar reserva'}
         </Button>
       </div>
     </form>

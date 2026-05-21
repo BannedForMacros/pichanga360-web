@@ -68,3 +68,73 @@ export function useConfirmarPagoReserva() {
     },
   })
 }
+
+/** Backend: PATCH /pagos-reserva/:id/devolver (admin) */
+export function useDevolverPagoReserva() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch<PagoReserva>(
+        `/pagos-reserva/${id}/devolver`,
+      )
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pagos-reserva'] })
+      queryClient.invalidateQueries({ queryKey: ['reservas'] })
+      toast.success('Pago devuelto', { position: 'top-right' })
+    },
+  })
+}
+
+export interface UpdatePagoReservaInput {
+  monto?: number
+  metodoPago?: PagoReserva['metodoPago']
+  referencia?: string
+}
+
+/**
+ * Backend: PATCH /pagos-reserva/:id
+ * Solo funciona mientras el pago siga PENDIENTE.
+ */
+export function useActualizarPagoReserva() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (vars: { id: string; data: UpdatePagoReservaInput }) => {
+      const payload = {
+        ...vars.data,
+        referencia: vars.data.referencia?.length
+          ? vars.data.referencia
+          : undefined,
+      }
+      const { data } = await api.patch<PagoReserva>(
+        `/pagos-reserva/${vars.id}`,
+        payload,
+      )
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pagos-reserva'] })
+      queryClient.invalidateQueries({ queryKey: ['reservas'] })
+      toast.success('Pago actualizado', { position: 'top-right' })
+    },
+  })
+}
+
+/**
+ * Backend: DELETE /pagos-reserva/:id
+ * Soft delete. Solo si el pago sigue PENDIENTE.
+ */
+export function useEliminarPagoReserva() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/pagos-reserva/${id}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pagos-reserva'] })
+      queryClient.invalidateQueries({ queryKey: ['reservas'] })
+      toast.success('Pago eliminado', { position: 'top-right' })
+    },
+  })
+}
