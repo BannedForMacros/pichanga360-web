@@ -1,5 +1,6 @@
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 import { DashboardGuard } from '@/components/dashboard/DashboardGuard'
+import { PushBanner } from '@/components/push/PushBanner'
 import { LocalActualProvider } from '@/contexts/LocalActualContext'
 
 export default function DashboardLayout({
@@ -10,7 +11,10 @@ export default function DashboardLayout({
   return (
     <LocalActualProvider>
       <DashboardGuard>
-        <DashboardShell>{children}</DashboardShell>
+        <DashboardShell>
+          <PushBanner />
+          {children}
+        </DashboardShell>
       </DashboardGuard>
     </LocalActualProvider>
   )
