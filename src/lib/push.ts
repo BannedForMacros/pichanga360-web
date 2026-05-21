@@ -52,11 +52,15 @@ export async function subscribeAndRegister(): Promise<PushSubscription> {
   }
   const reg = await navigator.serviceWorker.ready
   const existing = await reg.pushManager.getSubscription()
+  // El typing actual de PushSubscriptionOptionsInit pide BufferSource sobre
+  // ArrayBuffer concreto; el Uint8Array genérico no encaja porque su buffer
+  // puede ser SharedArrayBuffer. Pasamos el `.buffer` ya concreto.
+  const keyBytes = urlBase64ToUint8Array(vapidPub)
   const sub =
     existing ??
     (await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPub),
+      applicationServerKey: keyBytes.buffer as ArrayBuffer,
     }))
 
   await api.post('/push-tokens', {
