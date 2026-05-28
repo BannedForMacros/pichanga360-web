@@ -290,6 +290,14 @@ export interface ReservaRecurrente {
   fechaInicio: string
   fechaFin: string | null
   activa: boolean
+  cancha?: { id: string; nombre: string; localId: string }
+  cliente?: Pick<Usuario, 'id' | 'nombre' | 'apellido' | 'telefono' | 'email'>
+}
+
+/** Resultado de generar reservas a partir de una reserva fija. */
+export interface GenerarRecurrenteResult {
+  creadas: number
+  errores: { fecha: string; motivo: string }[]
 }
 
 export interface ListaEspera {
