@@ -96,7 +96,7 @@ export function CanchasDestacadas() {
             <p className="mt-1 text-sm text-gray-600">
               ¿Eres dueño de una cancha?{' '}
               <Link
-                href="/registro"
+                href="/registro-empresa"
                 className="font-semibold text-primary hover:underline"
               >
                 Regístrala aquí

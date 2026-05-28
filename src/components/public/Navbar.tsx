@@ -60,7 +60,7 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
               Iniciar sesión
             </Button>
           </Link>
-          <Link href="/registro" className="hidden md:block">
+          <Link href="/registro-empresa" className="hidden md:block">
             <Button variant="primary" size="sm">
               Registrar mi cancha
             </Button>
@@ -95,9 +95,9 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
                   Iniciar sesión
                 </Button>
               </Link>
-              <Link href="/registro" onClick={() => setOpen(false)}>
+              <Link href="/registro-empresa" onClick={() => setOpen(false)}>
                 <Button variant="primary" size="sm" fullWidth>
-                  Registrarme
+                  Registrar mi cancha
                 </Button>
               </Link>
             </div>

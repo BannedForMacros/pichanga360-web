@@ -68,7 +68,7 @@ export function CanchaCard({ cancha }: { cancha: CanchaCardData }) {
             </p>
           </div>
           <Link href={`/cancha/${cancha.id}`}>
-            <Button size="sm">Reservar →</Button>
+            <Button size="sm">Ver cancha →</Button>
           </Link>
         </div>
       </div>

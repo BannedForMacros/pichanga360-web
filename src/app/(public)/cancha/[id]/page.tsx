@@ -29,25 +29,10 @@ function formatHoraISO(iso: string) {
 
 export default function CanchaDetallePage({ params }: PageProps) {
   const { id } = use(params)
-  const router = useRouter()
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10))
-  const [reservaOpen, setReservaOpen] = useState(false)
-  const [horaSlot, setHoraSlot] = useState<string | undefined>()
 
   const { data: cancha, isLoading } = useCancha(id)
   const { data: disponibilidad } = useDisponibilidadCancha(id, fecha)
-  const { data: me } = useUsuarioActual()
-
-  const abrirReserva = (hh?: string) => {
-    if (typeof window !== 'undefined' && !tokenStore.getAccess()) {
-      // Sin sesión → al login y al volver vuelve aquí
-      const back = encodeURIComponent(`/cancha/${id}`)
-      router.push(`/login?returnTo=${back}`)
-      return
-    }
-    setHoraSlot(hh)
-    setReservaOpen(true)
-  }
 
   if (isLoading) {
     return (
@@ -89,9 +74,23 @@ export default function CanchaDetallePage({ params }: PageProps) {
   const minPrecio = precios.length ? Math.min(...precios) : 0
   const maxPrecio = precios.length ? Math.max(...precios) : 0
 
-  // Determinar si el usuario es dueño/operador (vista de admin no debería
-  // mostrar "Reservar" como cliente)
-  const esCliente = !me?.roles?.length || me.roles.every((r) => r.rol === 'CLIENTE')
+  // Teléfono de contacto del local: preferir el de tipo WHATSAPP; si no hay,
+  // caer al PRINCIPAL; en último caso, cualquier teléfono registrado.
+  const telefonos = cancha.local?.telefonos ?? []
+  const telWhatsapp =
+    telefonos.find((t) => t.tipo === 'WHATSAPP') ??
+    telefonos.find((t) => t.tipo === 'PRINCIPAL') ??
+    telefonos[0]
+  const numeroVisible = telWhatsapp
+    ? `${telWhatsapp.codigoPais} ${telWhatsapp.numero}`.trim()
+    : null
+  const numeroPlano = telWhatsapp
+    ? `${telWhatsapp.codigoPais}${telWhatsapp.numero}`.replace(/\D/g, '')
+    : null
+  const whatsappLink = buildWhatsAppLink(
+    numeroPlano,
+    `Hola, vi la cancha ${cancha.nombre} en Pichanga360 y quiero consultar disponibilidad.`,
+  )
 
   return (
     <Container className="py-10">
@@ -164,7 +163,7 @@ export default function CanchaDetallePage({ params }: PageProps) {
                   Horarios disponibles
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Toca un horario libre para reservarlo
+                  Consulta qué horarios están libres y coordina con el dueño
                 </p>
               </div>
               <input
@@ -187,18 +186,16 @@ export default function CanchaDetallePage({ params }: PageProps) {
                 disponibilidad.map((slot) => {
                   const inicio = formatHoraISO(slot.inicio)
                   return (
-                    <button
+                    <div
                       key={slot.inicio}
-                      disabled={!slot.disponible}
-                      onClick={() => abrirReserva(inicio)}
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                      className={`rounded-xl border px-3 py-2 text-center text-sm font-semibold ${
                         slot.disponible
-                          ? 'border-success bg-success-50 text-success-600 hover:bg-success hover:text-white'
-                          : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 line-through'
+                          ? 'border-success bg-success-50 text-success-600'
+                          : 'border-gray-200 bg-gray-50 text-gray-400 line-through'
                       }`}
                     >
                       {inicio}
-                    </button>
+                    </div>
                   )
                 })
               )}
@@ -221,55 +218,40 @@ export default function CanchaDetallePage({ params }: PageProps) {
               </p>
             )}
 
-            {esCliente ? (
-              <Button
-                fullWidth
-                size="lg"
-                className="mt-5"
-                onClick={() => abrirReserva()}
-              >
-                Reservar ahora
-              </Button>
+            <p className="mt-5 text-sm text-gray-600">
+              Para reservar, coordina directamente con el dueño de la cancha.
+            </p>
+
+            {numeroVisible ? (
+              <>
+                <a
+                  href={whatsappLink ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 block"
+                >
+                  <Button fullWidth size="lg" leftIcon={<Phone size={18} />}>
+                    Contactar por WhatsApp
+                  </Button>
+                </a>
+                <a href={`tel:${numeroPlano}`} className="mt-2 block">
+                  <Button variant="outline" fullWidth>
+                    Llamar al {numeroVisible}
+                  </Button>
+                </a>
+              </>
             ) : (
-              <p className="mt-5 rounded-xl bg-gray-50 px-3 py-3 text-center text-xs text-gray-500">
-                Estás logueado como administrador. Para reservar, usa una cuenta
-                de cliente.
+              <p className="mt-3 rounded-xl bg-gray-50 px-3 py-3 text-center text-xs text-gray-500">
+                Este local aún no registró un número de contacto.
               </p>
             )}
-            <Button variant="outline" fullWidth className="mt-2">
-              Contactar al dueño
-            </Button>
 
             <div className="mt-6 rounded-xl bg-success-50 p-3 text-xs text-success-600">
-              ✓ Pago seguro · Yape · Plin · Transferencia
+              ✓ Coordina horario, precio y forma de pago directamente con el dueño
             </div>
           </div>
         </aside>
       </div>
-
-      <Modal
-        isOpen={reservaOpen}
-        onClose={() => setReservaOpen(false)}
-        title={`Reservar ${cancha.nombre}`}
-        description={
-          horaSlot
-            ? `Confirmamos tu reserva del ${fecha} a las ${horaSlot}.`
-            : 'Elige fecha y hora de tu reserva.'
-        }
-        size="lg"
-      >
-        <ReservaForm
-          canchas={[{ id: cancha.id, nombre: cancha.nombre }]}
-          defaultCanchaId={cancha.id}
-          defaultFecha={fecha}
-          defaultHoraInicio={horaSlot}
-          onSuccess={() => {
-            setReservaOpen(false)
-            router.push('/reservas')
-          }}
-          onCancel={() => setReservaOpen(false)}
-        />
-      </Modal>
     </Container>
   )
 }

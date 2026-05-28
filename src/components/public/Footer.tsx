@@ -12,7 +12,7 @@ const cols = [
     title: 'Producto',
     links: [
       { label: 'Buscar canchas', href: '/buscar' },
-      { label: 'Para dueños', href: '/registro' },
+      { label: 'Para dueños', href: '/registro-empresa' },
       { label: 'Aplicación móvil', href: '#' },
       { label: 'Planes', href: '#precios' },
     ],
