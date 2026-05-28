@@ -1,23 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { use, useState } from 'react'
-import { MapPin, Star, Users } from 'lucide-react'
+import { MapPin, Phone, Star, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import Container from '@/components/ui/Container'
-import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { CanchaSVG } from '@/components/public/CanchaSVG'
-import { ReservaForm } from '@/components/reservas/ReservaForm'
 import {
   useCancha,
   useDisponibilidadCancha,
 } from '@/hooks/canchas/useCancha'
-import { useUsuarioActual } from '@/hooks/auth/useAuth'
-import { tokenStore } from '@/lib/api'
-import { formatCurrency } from '@/lib/utils'
+import { buildWhatsAppLink, formatCurrency } from '@/lib/utils'
 import type { DeporteCodigo, SuperficieCodigo } from '@/types'
 
 interface PageProps {
