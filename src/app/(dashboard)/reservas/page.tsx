@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, Search, Table } from 'lucide-react'
+import { CalendarDays, Repeat, Search, Table } from 'lucide-react'
 import { Header } from '@/components/dashboard/Header'
 import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Modal } from '@/components/ui/Modal'
@@ -12,6 +12,7 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { ReservaForm } from '@/components/reservas/ReservaForm'
 import { TablaReservas } from '@/components/reservas/TablaReservas'
 import { CalendarioSemanal } from '@/components/reservas/CalendarioSemanal'
+import { ReservasFijasPanel } from '@/components/reservas/ReservasFijasPanel'
 import { DetalleReservaModal } from '@/components/reservas/DetalleReservaModal'
 import { MisReservasList } from '@/components/reservas/MisReservasList'
 import { useReservas } from '@/hooks/reservas/useReservas'
@@ -21,7 +22,7 @@ import { useUsuarioActual } from '@/hooks/auth/useAuth'
 import { cn, formatDate } from '@/lib/utils'
 import type { Reserva } from '@/types'
 
-type Vista = 'calendario' | 'tabla'
+type Vista = 'calendario' | 'tabla' | 'fijas'
 
 export default function ReservasPage() {
   const router = useRouter()
@@ -80,6 +81,7 @@ export default function ReservasPage() {
     <DueñoView
       canchas={canchas ?? []}
       reservas={reservasResp?.data ?? []}
+      localId={localId ?? undefined}
       isLoading={loadingLocal || isLoading}
       onOpenMenu={openMenu}
     />
@@ -89,11 +91,12 @@ export default function ReservasPage() {
 interface DueñoViewProps {
   canchas: { id: string; nombre: string }[]
   reservas: Reserva[]
+  localId?: string
   isLoading: boolean
   onOpenMenu: () => void
 }
 
-function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProps) {
+function DueñoView({ canchas, reservas, localId, isLoading, onOpenMenu }: DueñoViewProps) {
   const [vista, setVista] = useState<Vista>('calendario')
   const [open, setOpen] = useState(false)
   const [canchaCalendario, setCanchaCalendario] = useState<string | undefined>()
@@ -170,6 +173,17 @@ function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProp
             >
               <Table size={14} /> Tabla
             </button>
+            <button
+              onClick={() => setVista('fijas')}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+                vista === 'fijas'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-600 hover:text-primary',
+              )}
+            >
+              <Repeat size={14} /> Fijas
+            </button>
           </div>
 
           {vista === 'calendario' && canchas.length > 0 && (
@@ -193,6 +207,12 @@ function DueñoView({ canchas, reservas, isLoading, onOpenMenu }: DueñoViewProp
             canchaId={canchaCalendario}
             onCrearReserva={onCrearDesdeCalendario}
             onClickReserva={(r) => setDetalleId(r.id)}
+          />
+        ) : vista === 'fijas' ? (
+          <ReservasFijasPanel
+            localId={localId}
+            canchas={canchas}
+            defaultCanchaId={canchaCalendario}
           />
         ) : (
           <TablaReservas
