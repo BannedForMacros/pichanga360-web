@@ -281,51 +281,57 @@ export function CalendarioSemanal({
                       {hh}
                     </td>
                     {dias.map((dia, idxDia) => {
+                      const { startRow, covered } = planPorDia[idxDia]
+
+                      // Fila tapada por un bloque que arrancó más arriba: no
+                      // renderizamos <td> — el rowspan del bloque la cubre.
+                      if (covered.has(h)) return null
+
+                      const inicio = startRow.get(h)
+                      if (inicio) {
+                        const r = inicio.reserva
+                        const nombre = r.cliente
+                          ? `${r.cliente.nombre} ${r.cliente.apellido ?? ''}`.trim()
+                          : 'Reserva'
+                        const rango = `${fmtHoraLocal(new Date(r.fechaInicio))}–${fmtHoraLocal(new Date(r.fechaFin))}`
+                        return (
+                          <td
+                            key={idxDia}
+                            rowSpan={inicio.rowspan}
+                            className="border-b border-l border-gray-100 p-0 align-top"
+                          >
+                            <button
+                              onClick={() => onClickReserva?.(r)}
+                              className={cn(
+                                'flex h-full min-h-14 w-full flex-col gap-0.5 border-l-2 px-2 py-1 text-left text-[11px] font-semibold transition',
+                                ESTADO_BG[r.estado],
+                              )}
+                              title={`${nombre} · ${rango} · ${ESTADO_LABEL[r.estado]}`}
+                            >
+                              <span className="truncate">{nombre}</span>
+                              <span className="truncate text-[10px] font-normal opacity-90">
+                                {rango}
+                              </span>
+                              <span className="truncate text-[9px] font-normal opacity-70">
+                                {ESTADO_LABEL[r.estado]}
+                              </span>
+                            </button>
+                          </td>
+                        )
+                      }
+
                       const diaKey = DIAS_LABEL[idxDia].key
                       const op = horarioPorDia.get(diaKey)
                       const operativo =
                         !!op && hh >= op.apertura && hhFin <= op.cierre
-
                       const fechaISO = localDayKey(dia)
-                      const reservas = reservasPorDia.get(fechaISO) ?? []
-                      const reservaSlot = reservas.find((r) => {
-                        const ini = new Date(r.fechaInicio)
-                        const fin = new Date(r.fechaFin)
-                        const slotIni = new Date(dia)
-                        slotIni.setHours(h, 0, 0, 0)
-                        const slotFin = new Date(slotIni)
-                        slotFin.setHours(h + 1, 0, 0, 0)
-                        return ini < slotFin && fin > slotIni
-                      })
 
                       return (
                         <td
                           key={idxDia}
                           className="h-14 border-b border-l border-gray-100 align-top"
                         >
-                          {reservaSlot ? (
-                            <button
-                              onClick={() => onClickReserva?.(reservaSlot)}
-                              className={cn(
-                                'h-full w-full border-l-2 px-2 py-1 text-left text-[11px] font-semibold transition',
-                                ESTADO_BG[reservaSlot.estado],
-                              )}
-                              title={
-                                reservaSlot.cliente
-                                  ? `${reservaSlot.cliente.nombre} ${reservaSlot.cliente.apellido}`
-                                  : 'Reserva'
-                              }
-                            >
-                              <p className="truncate">
-                                {reservaSlot.cliente
-                                  ? `${reservaSlot.cliente.nombre} ${reservaSlot.cliente.apellido}`
-                                  : 'Reserva'}
-                              </p>
-                              <p className="truncate text-[9px] font-normal opacity-80">
-                                {reservaSlot.estado}
-                              </p>
-                            </button>
-                          ) : operativo ? (
+                          {operativo ? (
                             <button
                               onClick={() => onCrearReserva?.(fechaISO, hh)}
                               className="group flex h-full w-full items-center justify-center text-gray-400 hover:bg-primary-50"

@@ -8,6 +8,7 @@ import {
   CreditCard,
   Goal,
   Mail,
+  MessageCircle,
   Pencil,
   Phone,
   PlayCircle,
@@ -35,7 +36,7 @@ import {
   useEliminarPagoReserva,
 } from '@/hooks/reservas/usePagosReserva'
 import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { buildWhatsAppLink, formatCurrency, formatDate } from '@/lib/utils'
 import type { EstadoReserva, PagoReserva, Reserva } from '@/types'
 
 const estadoBadge: Record<
@@ -144,6 +145,13 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
     ? `${cliente.nombre} ${cliente.apellido ?? ''}`.trim()
     : 'Cliente desconocido'
   const { pagado, estimado, saldo } = calcularMontos(reserva)
+
+  // Enlace de WhatsApp al cliente con un mensaje sobre esta reserva ya armado,
+  // para confirmar, recordar o coordinar sin tener que escribir todo a mano.
+  const mensajeWhatsApp = cliente
+    ? `Hola ${cliente.nombre}, te escribo por tu reserva en ${reserva.cancha?.nombre ?? 'la cancha'} el ${formatDate(reserva.fechaInicio)} de ${formatHora(reserva.fechaInicio)} a ${formatHora(reserva.fechaFin)}.`
+    : ''
+  const whatsAppLink = buildWhatsAppLink(cliente?.telefono, mensajeWhatsApp)
 
   const puedeConfirmar = reserva.estado === 'PENDIENTE'
   const puedeIniciarPartido = reserva.estado === 'CONFIRMADA'
@@ -268,6 +276,16 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                       className="inline-flex items-center gap-1 hover:text-primary"
                     >
                       <Phone size={11} /> {cliente.telefono}
+                    </a>
+                  )}
+                  {whatsAppLink && (
+                    <a
+                      href={whatsAppLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold text-success-700 hover:text-success-600"
+                    >
+                      <MessageCircle size={11} /> WhatsApp
                     </a>
                   )}
                   {cliente?.email &&
