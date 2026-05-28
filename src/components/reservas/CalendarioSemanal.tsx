@@ -27,6 +27,22 @@ const ESTADO_BG: Record<EstadoReserva, string> = {
   CANCELADA: 'bg-red-50 border-red-200 text-red-600 line-through opacity-60',
 }
 
+const ESTADO_LABEL: Record<EstadoReserva, string> = {
+  PENDIENTE: 'Pendiente',
+  CONFIRMADA: 'Confirmada',
+  EN_CURSO: 'En curso',
+  COMPLETADA: 'Completada',
+  CANCELADA: 'Cancelada',
+}
+
+function fmtHoraLocal(d: Date): string {
+  return d.toLocaleTimeString('es-PE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 /** Lunes (00:00) de la semana que contiene `d`. */
 function lunesDeSemana(d: Date): Date {
   const x = new Date(d)
@@ -141,6 +157,35 @@ export function CalendarioSemanal({
   }, [reservasResp])
 
   const horas = Array.from({ length: horaMax - horaMin }, (_, i) => horaMin + i)
+
+  // Plan de render por día: una reserva ocupa varias filas de hora (p. ej.
+  // 18:00–20:00 toca las filas 18 y 19). Antes pintábamos el bloque en CADA
+  // fila, así que una reserva multi-hora se veía como dos reservas repetidas.
+  // Acá calculamos, por día, en qué fila ARRANCA cada bloque y cuántas filas
+  // abarca (rowspan), más el set de filas que quedan "tapadas" por un bloque
+  // que empezó antes — esas celdas no se renderizan (el rowspan las cubre).
+  const planPorDia = useMemo(() => {
+    return dias.map((dia) => {
+      const fechaISO = localDayKey(dia)
+      const delDia = reservasPorDia.get(fechaISO) ?? []
+      const startRow = new Map<number, { reserva: Reserva; rowspan: number }>()
+      const covered = new Set<number>()
+      for (const r of delDia) {
+        const ini = new Date(r.fechaInicio)
+        const fin = new Date(r.fechaFin)
+        const iniHoras = ini.getHours() + ini.getMinutes() / 60
+        const finHoras = fin.getHours() + fin.getMinutes() / 60
+        // Recortamos al rango visible del calendario (horaMin … horaMax).
+        const primera = Math.max(Math.floor(iniHoras), horaMin)
+        const ultima = Math.min(Math.ceil(finHoras) - 1, horaMax - 1)
+        if (ultima < primera) continue
+        startRow.set(primera, { reserva: r, rowspan: ultima - primera + 1 })
+        for (let h = primera + 1; h <= ultima; h++) covered.add(h)
+      }
+      return { startRow, covered }
+    })
+  }, [dias, reservasPorDia, horaMin, horaMax])
+
   const hoy = new Date()
 
   const goSemana = (delta: number) => setRefDate((d) => addDias(d, delta * 7))
