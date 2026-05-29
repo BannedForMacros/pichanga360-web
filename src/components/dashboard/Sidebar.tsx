@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   LifeBuoy,
   Settings,
+  Wallet,
+  Clock,
   X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -202,7 +204,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const mounted = useIsMounted()
   const { data: modulos, isLoading: loadingModulos } = useModulosDisponibles('WEB')
 
-  const dashboardActive = pathname === '/dashboard'
+  // Accesos fijos del backoffice (no son módulos de dominio del backend).
+  const fijos = [
+    { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+    { href: '/caja', label: 'Caja del día', icon: <Wallet size={18} /> },
+    { href: '/lista-espera', label: 'Lista de espera', icon: <Clock size={18} /> },
+  ]
   // Mientras no estemos montados en cliente, forzamos el render "cargando"
   // para que SSR y la primera hidratación coincidan al 100%.
   const showLoadingModulos = !mounted || loadingModulos
@@ -238,22 +245,24 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             General
           </p>
           <ul className="space-y-0.5">
-            <li>
-              <Link
-                href="/dashboard"
-                onClick={onClose}
-                className={cn(
-                  'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition',
-                  dashboardActive
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-gray-700 hover:bg-primary-50 hover:text-primary',
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <LayoutDashboard size={18} /> Dashboard
-                </span>
-              </Link>
-            </li>
+            {fijos.map((f) => (
+              <li key={f.href}>
+                <Link
+                  href={f.href}
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition',
+                    isActive(pathname, f.href)
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-gray-700 hover:bg-primary-50 hover:text-primary',
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    {f.icon} {f.label}
+                  </span>
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 

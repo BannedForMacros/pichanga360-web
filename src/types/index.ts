@@ -307,6 +307,7 @@ export interface ListaEspera {
   fechaInicio: string
   fechaFin: string
   posicion: number
+  cliente?: Pick<Usuario, 'id' | 'nombre' | 'apellido' | 'telefono'>
 }
 
 // ---------- Productos / Snacks ----------
