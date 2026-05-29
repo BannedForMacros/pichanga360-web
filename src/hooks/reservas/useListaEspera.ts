@@ -24,6 +24,36 @@ export function useListaEsperaByCancha(canchaId?: string) {
   })
 }
 
+export interface AgregarListaEsperaInput {
+  canchaId: string
+  clienteId: string
+  fechaInicio: string // ISO
+  fechaFin: string // ISO
+}
+
+/**
+ * Backend: POST /canchas/:canchaId/lista-espera
+ * El dueño/operador anota a un cliente del negocio en la cola de un horario.
+ */
+export function useAgregarListaEspera() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ canchaId, ...body }: AgregarListaEsperaInput) => {
+      const { data } = await api.post<ListaEspera>(
+        `/canchas/${canchaId}/lista-espera`,
+        body,
+      )
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY })
+      toast.success('Cliente agregado a la lista de espera', {
+        position: 'top-right',
+      })
+    },
+  })
+}
+
 /** Backend: DELETE /lista-espera/:id */
 export function useEliminarListaEspera() {
   const qc = useQueryClient()

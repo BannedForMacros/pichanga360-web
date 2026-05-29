@@ -7,9 +7,11 @@ import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
+import { ListaEsperaForm } from '@/components/reservas/ListaEsperaForm'
 import { useLocalActual } from '@/hooks/auth/useLocalActual'
 import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
 import {
@@ -58,6 +60,7 @@ export default function ListaEsperaPage() {
   const eliminar = useEliminarListaEspera()
 
   const [target, setTarget] = useState<ListaEspera | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   // Agrupamos la cola por franja (fechaInicio + fechaFin) para que el dueño vea
   // "quién espera por este horario".
@@ -86,6 +89,8 @@ export default function ListaEsperaPage() {
       <Header
         title="Lista de espera"
         breadcrumb={[{ label: 'Operación' }, { label: 'Lista de espera' }]}
+        onNew={canchas && canchas.length > 0 ? () => setFormOpen(true) : undefined}
+        newLabel="+ Agregar cliente"
         onOpenMenu={openMenu}
       />
 
@@ -224,6 +229,21 @@ export default function ListaEsperaPage() {
           </div>
         </Card>
       </div>
+
+      <Modal
+        isOpen={formOpen}
+        onClose={() => setFormOpen(false)}
+        title="Agregar a lista de espera"
+        description="Anota a un cliente que quería un horario ocupado."
+        size="lg"
+      >
+        <ListaEsperaForm
+          canchas={(canchas ?? []).map((c) => ({ id: c.id, nombre: c.nombre }))}
+          defaultCanchaId={canchaId}
+          onSuccess={() => setFormOpen(false)}
+          onCancel={() => setFormOpen(false)}
+        />
+      </Modal>
 
       <ConfirmModal
         isOpen={!!target}
