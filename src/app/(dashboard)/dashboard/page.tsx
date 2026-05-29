@@ -51,19 +51,35 @@ export default function DashboardPage() {
     const mes = reservas.filter(
       (r) => isMismoMes(r.fechaInicio, hoy) && r.estado !== 'CANCELADA'
     )
+    // Solo dinero realmente cobrado: pagos en estado PAGADO. Excluye los
+    // PENDIENTE (el cliente aún no paga) y los DEVUELTO (reembolsos).
     const ingresosMes = mes.reduce((acc, r) => {
-      const m = r.pagos?.reduce((a, p) => a + Number(p.monto ?? 0), 0) ?? 0
+      const m =
+        r.pagos?.reduce(
+          (a, p) => a + (p.estado === 'PAGADO' ? Number(p.monto ?? 0) : 0),
+          0
+        ) ?? 0
       return acc + m
     }, 0)
 
     const totalCanchas = canchas?.length ?? 0
     const activas = canchas?.filter((c) => c.estado === 'ACTIVA').length ?? 0
 
+    // Ocupación de hoy: horas efectivamente reservadas vs. horas disponibles
+    // estimadas (canchas activas × 14h de operación). Usa la duración real de
+    // cada reserva en lugar de contarlas como bloques de 1h.
+    const horasReservadasHoy = reservas
+      .filter((r) => isMismaDia(r.fechaInicio, hoy) && r.estado !== 'CANCELADA')
+      .reduce((acc, r) => {
+        const ini = new Date(r.fechaInicio).getTime()
+        const fin = new Date(r.fechaFin).getTime()
+        const horas = (fin - ini) / 3_600_000
+        return acc + (horas > 0 ? horas : 0)
+      }, 0)
+    const horasDisponibles = Math.max(activas * 14, 1)
     const ocupacion =
-      totalCanchas > 0
-        ? Math.round(
-            (reservasHoy / Math.max(totalCanchas * 12, 1)) * 100
-          )
+      activas > 0
+        ? Math.min(100, Math.round((horasReservadasHoy / horasDisponibles) * 100))
         : 0
 
     return { reservasHoy, ingresosMes, activas, totalCanchas, ocupacion }
@@ -112,7 +128,7 @@ export default function DashboardPage() {
                     ? `S/ ${stats.ingresosMes.toFixed(2)}`
                     : 'S/ 0.00'
                 }
-                subtitle="basado en pagos registrados"
+                subtitle="cobrado este mes"
                 icon={<Wallet size={18} />}
                 color="success"
               />
@@ -130,7 +146,7 @@ export default function DashboardPage() {
               <MetricCard
                 title="Ocupación estimada"
                 value={`${stats.ocupacion}%`}
-                subtitle="reservas hoy / capacidad"
+                subtitle="horas reservadas hoy / capacidad"
                 icon={<BarChart3 size={18} />}
                 color="warning"
               />
