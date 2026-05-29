@@ -56,7 +56,10 @@ export default function CajaPage() {
     limit: 200,
   })
 
-  const reservas: Reserva[] = reservasResp?.data ?? []
+  const reservas = useMemo<Reserva[]>(
+    () => reservasResp?.data ?? [],
+    [reservasResp],
+  )
 
   const caja = useMemo(() => {
     const porMetodo = new Map<MetodoPago, { total: number; count: number }>()

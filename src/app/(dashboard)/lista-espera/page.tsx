@@ -108,7 +108,7 @@ export default function ListaEsperaPage() {
                     value: c.id,
                   }))}
                   value={canchaId}
-                  onChange={(v) => setCanchaId(v)}
+                  onChange={(v) => setSeleccion(v)}
                   placeholder="Selecciona una cancha"
                   emptyText="Sin canchas registradas"
                   loading={loadingCanchas}
