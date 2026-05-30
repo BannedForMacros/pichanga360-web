@@ -11,6 +11,7 @@ import {
   Settings,
   Wallet,
   Clock,
+  Users,
   X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -209,6 +210,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { href: '/caja', label: 'Caja del día', icon: <Wallet size={18} /> },
     { href: '/lista-espera', label: 'Lista de espera', icon: <Clock size={18} /> },
+    { href: '/equipo', label: 'Equipo', icon: <Users size={18} /> },
   ]
   // Mientras no estemos montados en cliente, forzamos el render "cargando"
   // para que SSR y la primera hidratación coincidan al 100%.

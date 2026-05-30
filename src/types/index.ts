@@ -42,6 +42,7 @@ export type EstadoReserva =
   | 'EN_CURSO'
   | 'COMPLETADA'
   | 'CANCELADA'
+  | 'NO_SHOW'
 
 export type MetodoPago = 'EFECTIVO' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA'
 
@@ -454,4 +455,47 @@ export interface PaginationQuery {
   search?: string
   sortBy?: string
   order?: 'asc' | 'desc'
+}
+
+// ---------- Caja: arqueo/cierre + egresos ----------
+export type EstadoCajaSesion = 'ABIERTA' | 'CERRADA'
+
+interface UsuarioResumen {
+  id: string
+  nombre: string | null
+  apellido: string | null
+}
+
+export interface EgresoCaja {
+  id: string
+  localId: string
+  cajaSesionId: string | null
+  registradoPorId: string
+  concepto: string
+  monto: number | string
+  metodoPago: MetodoPago
+  fecha: string
+  registradoPor?: UsuarioResumen
+}
+
+export interface CajaSesion {
+  id: string
+  localId: string
+  abiertaPorId: string
+  cerradaPorId: string | null
+  estado: EstadoCajaSesion
+  montoInicial: number | string
+  montoFinalContado: number | string | null
+  notaApertura: string | null
+  notaCierre: string | null
+  abiertaEn: string
+  cerradaEn: string | null
+  egresos?: EgresoCaja[]
+  abiertaPor?: UsuarioResumen
+  cerradaPor?: UsuarioResumen
+}
+
+export interface CajaResumen {
+  egresos: EgresoCaja[]
+  totalEgresos: number
 }

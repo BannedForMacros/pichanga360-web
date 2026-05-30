@@ -80,7 +80,7 @@ export default function ReportesPage() {
     for (const c of canchas ?? []) canchaById.set(c.id, c)
 
     for (const r of reservas) {
-      if (r.estado === 'CANCELADA') continue
+      if (['CANCELADA', 'NO_SHOW'].includes(r.estado)) continue
       const f = startOfDay(new Date(r.fechaInicio))
       const idx = 6 - diffDias(hoy, f)
       if (idx >= 0 && idx < 7) {

@@ -25,6 +25,7 @@ const ESTADO_BG: Record<EstadoReserva, string> = {
   EN_CURSO: 'bg-primary/20 border-primary/40 text-primary hover:bg-primary/30',
   COMPLETADA: 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200',
   CANCELADA: 'bg-red-50 border-red-200 text-red-600 line-through opacity-60',
+  NO_SHOW: 'bg-red-50 border-red-300 text-red-700 hover:bg-red-100',
 }
 
 const ESTADO_LABEL: Record<EstadoReserva, string> = {
@@ -33,6 +34,7 @@ const ESTADO_LABEL: Record<EstadoReserva, string> = {
   EN_CURSO: 'En curso',
   COMPLETADA: 'Completada',
   CANCELADA: 'Cancelada',
+  NO_SHOW: 'No asistió',
 }
 
 function fmtHoraLocal(d: Date): string {

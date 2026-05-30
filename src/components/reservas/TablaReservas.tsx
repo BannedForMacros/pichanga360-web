@@ -20,6 +20,7 @@ const tabs: { value: 'TODAS' | EstadoReserva; label: string }[] = [
   { value: 'PENDIENTE', label: 'Pendientes' },
   { value: 'EN_CURSO', label: 'En curso' },
   { value: 'COMPLETADA', label: 'Completadas' },
+  { value: 'NO_SHOW', label: 'No asistieron' },
 ]
 
 const estadoBadge: Record<
@@ -31,6 +32,7 @@ const estadoBadge: Record<
   EN_CURSO: { label: 'En curso', variant: 'primary' },
   COMPLETADA: { label: 'Completada', variant: 'info' },
   CANCELADA: { label: 'Cancelada', variant: 'danger' },
+  NO_SHOW: { label: 'No asistió', variant: 'danger' },
 }
 
 function formatHora(iso: string) {
@@ -225,7 +227,8 @@ export function TablaReservas({ reservas, onVerDetalle }: TablaReservasProps) {
                           </Button>
                         )}
                         {r.estado !== 'CANCELADA' &&
-                          r.estado !== 'COMPLETADA' && (
+                          r.estado !== 'COMPLETADA' &&
+                          r.estado !== 'NO_SHOW' && (
                             <Button
                               variant="ghost"
                               size="sm"

@@ -107,6 +107,7 @@ export function useCambiarEstadoReserva() {
         EN_CURSO: 'Partido iniciado',
         COMPLETADA: 'Partido terminado',
         CANCELADA: 'Reserva cancelada',
+        NO_SHOW: 'Reserva marcada como no asistió',
       }
       toast.success(labels[vars.estado], { position: 'top-right' })
     },

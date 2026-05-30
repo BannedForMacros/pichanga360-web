@@ -45,11 +45,15 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const hoy = new Date()
     const reservasHoy = reservas.filter(
-      (r) => isMismaDia(r.fechaInicio, hoy) && r.estado !== 'CANCELADA'
+      (r) =>
+        isMismaDia(r.fechaInicio, hoy) &&
+        !['CANCELADA', 'NO_SHOW'].includes(r.estado)
     ).length
 
     const mes = reservas.filter(
-      (r) => isMismoMes(r.fechaInicio, hoy) && r.estado !== 'CANCELADA'
+      (r) =>
+        isMismoMes(r.fechaInicio, hoy) &&
+        !['CANCELADA', 'NO_SHOW'].includes(r.estado)
     )
     // Solo dinero realmente cobrado: pagos en estado PAGADO. Excluye los
     // PENDIENTE (el cliente aún no paga) y los DEVUELTO (reembolsos).
@@ -69,7 +73,11 @@ export default function DashboardPage() {
     // estimadas (canchas activas × 14h de operación). Usa la duración real de
     // cada reserva en lugar de contarlas como bloques de 1h.
     const horasReservadasHoy = reservas
-      .filter((r) => isMismaDia(r.fechaInicio, hoy) && r.estado !== 'CANCELADA')
+      .filter(
+        (r) =>
+          isMismaDia(r.fechaInicio, hoy) &&
+          !['CANCELADA', 'NO_SHOW'].includes(r.estado)
+      )
       .reduce((acc, r) => {
         const ini = new Date(r.fechaInicio).getTime()
         const fin = new Date(r.fechaFin).getTime()

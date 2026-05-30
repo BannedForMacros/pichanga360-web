@@ -34,6 +34,7 @@ const estadoBadge: Record<
   EN_CURSO: { label: 'En curso', variant: 'primary' },
   COMPLETADA: { label: 'Completada', variant: 'info' },
   CANCELADA: { label: 'Cancelada', variant: 'danger' },
+  NO_SHOW: { label: 'No asististe', variant: 'danger' },
 }
 
 function formatHora(iso: string) {
@@ -110,7 +111,8 @@ export function MisReservasList({ reservas }: Props) {
           const cancha = r.cancha
           const puedeCancelar =
             r.estado === 'PENDIENTE' || r.estado === 'CONFIRMADA'
-          const puedePagar = saldo > 0 && r.estado !== 'CANCELADA'
+          const puedePagar =
+            saldo > 0 && r.estado !== 'CANCELADA' && r.estado !== 'NO_SHOW'
           const puedeMostrarQR =
             r.estado === 'PENDIENTE' ||
             r.estado === 'CONFIRMADA' ||

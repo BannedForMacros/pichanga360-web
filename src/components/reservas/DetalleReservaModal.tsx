@@ -15,6 +15,7 @@ import {
   QrCode,
   RotateCcw,
   Trash2,
+  UserX,
   X,
 } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
@@ -51,6 +52,7 @@ const estadoBadge: Record<
   EN_CURSO: { label: 'En curso', variant: 'primary' },
   COMPLETADA: { label: 'Completada', variant: 'info' },
   CANCELADA: { label: 'Cancelada', variant: 'danger' },
+  NO_SHOW: { label: 'No asistió', variant: 'danger' },
 }
 
 const ESTADO_PAGO_VARIANT: Record<
@@ -156,8 +158,14 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
   const puedeConfirmar = reserva.estado === 'PENDIENTE'
   const puedeIniciarPartido = reserva.estado === 'CONFIRMADA'
   const puedeCompletar = reserva.estado === 'EN_CURSO'
+  // El cliente confirmado (o ya en curso) que no se presentó se marca como
+  // "no asistió" (NO_SHOW), estado terminal distinto de cancelado.
+  const puedeNoShow =
+    reserva.estado === 'CONFIRMADA' || reserva.estado === 'EN_CURSO'
   const puedeCancelar =
-    reserva.estado !== 'COMPLETADA' && reserva.estado !== 'CANCELADA'
+    reserva.estado !== 'COMPLETADA' &&
+    reserva.estado !== 'CANCELADA' &&
+    reserva.estado !== 'NO_SHOW'
   // Editar solo aplica antes de que el partido empiece. Una vez EN_CURSO,
   // COMPLETADA o CANCELADA, el flujo correcto es cancelar+rehacer.
   const puedeEditar =
@@ -166,7 +174,8 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
   // siga viva. Antes dependía de saldo > 0, pero si la cancha no tiene tarifa
   // configurada el saldo era 0 y el botón desaparecía — quedaba sin forma de
   // anotar un adelanto.
-  const puedePago = reserva.estado !== 'CANCELADA'
+  const puedePago =
+    reserva.estado !== 'CANCELADA' && reserva.estado !== 'NO_SHOW'
 
   return (
     <>
@@ -241,6 +250,25 @@ export function DetalleReservaModal({ reserva, onClose }: Props) {
                   onClick={() => setEditarOpen(true)}
                 >
                   Editar
+                </Button>
+              )}
+              {puedeNoShow && (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  leftIcon={<UserX size={14} />}
+                  loading={
+                    cambiarEstado.isPending &&
+                    cambiarEstado.variables?.estado === 'NO_SHOW'
+                  }
+                  onClick={() =>
+                    cambiarEstado.mutate({
+                      id: reserva.id,
+                      estado: 'NO_SHOW',
+                    })
+                  }
+                >
+                  Marcar como no asistió
                 </Button>
               )}
               {puedeCancelar && (
