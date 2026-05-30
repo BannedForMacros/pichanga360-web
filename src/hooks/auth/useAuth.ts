@@ -9,6 +9,7 @@ import type {
   RegistroEmpresaFormData,
   RegistroFormData,
 } from '@/validators/auth/auth.schema'
+import type { CambiarPasswordFormData } from '@/validators/auth/cambiar-password.schema'
 
 /**
  * Shape "crudo" que devuelve el backend en GET /auth/me.
@@ -111,6 +112,23 @@ export function useRegistroEmpresa() {
       toast.success(`¡Bienvenido a Pichanga360, ${data.user.nombre}!`, {
         position: 'top-right',
       })
+    },
+  })
+}
+
+export function useCambiarPassword() {
+  return useMutation({
+    mutationFn: async (input: CambiarPasswordFormData) => {
+      // El backend (ChangePasswordDto) solo acepta passwordActual y passwordNueva.
+      // Filtramos confirmarPassword (whitelist + forbidNonWhitelisted).
+      const payload = {
+        passwordActual: input.passwordActual,
+        passwordNueva: input.passwordNueva,
+      }
+      await api.post('/auth/change-password', payload)
+    },
+    onSuccess: () => {
+      toast.success('Contraseña actualizada', { position: 'top-right' })
     },
   })
 }

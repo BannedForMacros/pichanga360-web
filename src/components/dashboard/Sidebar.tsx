@@ -302,17 +302,23 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
       <div className="mt-4 space-y-2">
         <Link
-          href="#"
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary"
+          href="/empresas/me"
+          onClick={onClose}
+          className={cn(
+            'flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition',
+            isActive(pathname, '/empresas/me')
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-gray-700 hover:bg-primary-50 hover:text-primary',
+          )}
         >
           <Settings size={18} /> Configuración
         </Link>
-        <Link
-          href="#"
+        <a
+          href="mailto:soporte@pichanga360.pe?subject=Soporte%20Pichanga360"
           className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary"
         >
           <LifeBuoy size={18} /> Soporte
-        </Link>
+        </a>
 
         <div className="rounded-2xl bg-primary-700 p-4 text-white">
           <Badge variant="warning" size="sm">

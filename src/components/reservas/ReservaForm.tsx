@@ -106,23 +106,31 @@ function inicialesDesdeReserva(r: Reserva): {
   }
 }
 
+type CalculoTarifa = {
+  total: number
+  /** true cuando hay al menos una tarifa configurada que aplica al horario. */
+  tieneTarifa: boolean
+}
+
 function calcularTotalEstimado(
   cancha: CanchaParaForm | undefined,
   horaInicio: string,
   duracionMin: number,
-): number {
-  if (!cancha) return 0
+): CalculoTarifa {
+  if (!cancha) return { total: 0, tieneTarifa: false }
   const horas = duracionMin / 60
-  if (horas <= 0) return 0
+  if (horas <= 0) return { total: 0, tieneTarifa: false }
   const tarifas = [
     ...(cancha.tarifas ?? []),
     ...(cancha.tipoCancha?.tarifas ?? []),
   ]
-  if (tarifas.length === 0) return 0
+  // Sin ninguna tarifa configurada: el total no se puede estimar. Devolvemos
+  // tieneTarifa=false para distinguirlo de una tarifa válida de precio 0.
+  if (tarifas.length === 0) return { total: 0, tieneTarifa: false }
   const aplicable =
     tarifas.find((t) => horaInicio >= t.horaInicio && horaInicio < t.horaFin) ??
     tarifas[0]
-  return horas * Number(aplicable.precioHora)
+  return { total: horas * Number(aplicable.precioHora), tieneTarifa: true }
 }
 
 function esFechaHoraPasada(fecha?: string, hora?: string): boolean {
@@ -331,7 +339,7 @@ export function ReservaForm({
     () => canchas.find((c) => c.id === canchaWatch),
     [canchas, canchaWatch],
   )
-  const totalEstimado = useMemo(
+  const { total: totalEstimado, tieneTarifa } = useMemo(
     () =>
       calcularTotalEstimado(
         canchaSeleccionada,
@@ -341,6 +349,17 @@ export function ReservaForm({
     [canchaSeleccionada, horaInicioWatch, duracionWatch],
   )
   const saldoEstimado = Math.max(0, totalEstimado - pagoMonto)
+
+  // Mostramos la advertencia solo cuando ya hay una cancha y duración válidas
+  // pero esa cancha no tiene ninguna tarifa configurada. No es lo mismo que
+  // una tarifa de S/ 0.00 (esa sí tiene tieneTarifa=true). En edición no
+  // aplica: el precio ya quedó fijado al crearse.
+  const sinTarifaConfigurada =
+    !esEdicion &&
+    !!canchaSeleccionada &&
+    (duracionWatch ?? 0) > 0 &&
+    !tieneTarifa
+  const [confirmaSinTarifa, setConfirmaSinTarifa] = useState(false)
 
   const onSubmit = handleSubmit(async (data) => {
     if (!esEdicion && esAdminOperador && !cliente) {
@@ -400,6 +419,14 @@ export function ReservaForm({
   // aplica porque el estado se cambia con los botones del detalle.
   const mostrarSelectorCliente = !esEdicion && esAdminOperador
   const mostrarConfirmarYPago = !esEdicion && esAdminOperador
+
+  // Si la cancha no tiene tarifa, bloqueamos el guardado salvo que el dueño:
+  // confirme explícitamente que va sin tarifa (S/ 0.00), o esté registrando un
+  // pago/monto manual (> 0), que es la salida legítima para cobrar a mano.
+  const bloqueadoPorTarifa =
+    sinTarifaConfigurada &&
+    !confirmaSinTarifa &&
+    !(registrarPagoNow && pagoMonto > 0)
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -551,6 +578,35 @@ export function ReservaForm({
             </div>
           )}
 
+          {sinTarifaConfigurada && (
+            <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-xs text-warning-700">
+              <AlertTriangle
+                size={16}
+                className="mt-0.5 shrink-0 text-warning-700"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">
+                  Esta cancha no tiene tarifa configurada para este horario.
+                </p>
+                <p className="mt-0.5 leading-relaxed">
+                  El total se calculará como{' '}
+                  <span className="font-semibold">S/ 0.00</span>. Configúrala en
+                  Tarifas o registra el monto que cobraste más abajo. Si de
+                  verdad esta reserva es gratis, confírmalo para continuar.
+                </p>
+                <label className="mt-2 flex items-center gap-2 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={confirmaSinTarifa}
+                    onChange={(e) => setConfirmaSinTarifa(e.target.checked)}
+                    className="accent-warning"
+                  />
+                  <span>Entiendo, guardar sin tarifa (total S/ 0.00)</span>
+                </label>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-dark">
               Notas (opcional)
@@ -655,7 +711,7 @@ export function ReservaForm({
         )}
         <Button
           type="submit"
-          disabled={!!conflicto}
+          disabled={!!conflicto || bloqueadoPorTarifa}
           loading={
             crear.isPending || actualizar.isPending || registrarPago.isPending
           }

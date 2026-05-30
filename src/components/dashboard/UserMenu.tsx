@@ -58,15 +58,15 @@ export function UserMenu() {
           <DropdownMenu.Separator className="my-1 h-px bg-gray-100" />
           <DropdownMenu.Item asChild>
             <Link
-              href="/perfil"
+              href="/cuenta"
               className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:bg-primary-50 focus:text-primary"
             >
-              <UserIcon size={14} /> Mi perfil
+              <UserIcon size={14} /> Mi cuenta
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild>
             <Link
-              href="/configuracion"
+              href="/empresas/me"
               className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:bg-primary-50 focus:text-primary"
             >
               <Settings size={14} /> Configuración
