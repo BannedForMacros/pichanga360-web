@@ -12,10 +12,12 @@ interface Props {
   onClose: () => void
   sesionId: string
   montoInicial: number
-  /** Cobrado en EFECTIVO durante el turno (calculado en la página). */
+  /** Efectivo recibido en el día (pagos EFECTIVO con fechaPago en el día). */
   cobradoEfectivo: number
-  /** Egresos en EFECTIVO del turno (calculado en la página). */
+  /** Egresos en EFECTIVO del día. */
   egresosEfectivo: number
+  /** Devoluciones en EFECTIVO del día (pagos con fechaDevolucion en el día). */
+  devolucionesEfectivo: number
 }
 
 export function CerrarCajaModal({
@@ -25,12 +27,17 @@ export function CerrarCajaModal({
   montoInicial,
   cobradoEfectivo,
   egresosEfectivo,
+  devolucionesEfectivo,
 }: Props) {
   const [montoContado, setMontoContado] = useState('')
   const [notaCierre, setNotaCierre] = useState('')
   const cerrar = useCerrarCaja()
 
-  const efectivoEsperado = montoInicial + cobradoEfectivo - egresosEfectivo
+  // Arqueo por eventos: el efectivo recibido usa fechaPago y las devoluciones
+  // su propia fechaDevolucion, así una devolución del mismo día se neutraliza
+  // sola (no se descuenta dos veces) y una devolución de otro día sí resta.
+  const efectivoEsperado =
+    montoInicial + cobradoEfectivo - egresosEfectivo - devolucionesEfectivo
   const contadoNum = Number(montoContado)
   const valido = montoContado !== '' && !Number.isNaN(contadoNum) && contadoNum >= 0
   const diferencia = valido ? contadoNum - efectivoEsperado : 0
@@ -95,6 +102,12 @@ export function CerrarCajaModal({
               <dt className="text-gray-600">− Egresos en efectivo</dt>
               <dd className="font-medium text-red-600">
                 {formatCurrency(egresosEfectivo)}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-gray-600">− Devoluciones en efectivo</dt>
+              <dd className="font-medium text-red-600">
+                {formatCurrency(devolucionesEfectivo)}
               </dd>
             </div>
             <div className="flex justify-between border-t border-gray-200 pt-2">

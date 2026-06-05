@@ -11,7 +11,36 @@ import { useReservas } from '@/hooks/reservas/useReservas'
 import { useCanchasByLocal } from '@/hooks/canchas/useCanchas'
 import { useLocalActual } from '@/hooks/auth/useLocalActual'
 import { useUsuarioActual } from '@/hooks/auth/useAuth'
-import type { Reserva } from '@/types'
+import type { DiaSemana, Reserva } from '@/types'
+
+// La app opera en Perú (UTC-5, sin DST). Para saber qué día de la semana es
+// "hoy" en Perú restamos 5h y usamos getUTCDay(); así no dependemos de la TZ
+// del navegador. Mismo criterio que el backend (diaSemanaPeru).
+const PE_OFFSET_MS = 5 * 60 * 60 * 1000
+const DIA_SEMANA_BY_INDEX: DiaSemana[] = [
+  'DOMINGO',
+  'LUNES',
+  'MARTES',
+  'MIERCOLES',
+  'JUEVES',
+  'VIERNES',
+  'SABADO',
+]
+
+function diaSemanaPeru(ref: Date): DiaSemana {
+  const local = new Date(ref.getTime() - PE_OFFSET_MS)
+  return DIA_SEMANA_BY_INDEX[local.getUTCDay()]
+}
+
+/** "HH:mm" → horas decimales (ej. "08:30" → 8.5). Inválido → 0. */
+function horaADecimal(hhmm: string | undefined | null): number {
+  if (!hhmm) return 0
+  const [h, m] = hhmm.split(':')
+  const horas = Number(h)
+  const minutos = Number(m)
+  if (Number.isNaN(horas) || Number.isNaN(minutos)) return 0
+  return horas + minutos / 60
+}
 
 function isMismaDia(iso: string, ref: Date) {
   const d = new Date(iso)
@@ -67,11 +96,15 @@ export default function DashboardPage() {
     }, 0)
 
     const totalCanchas = canchas?.length ?? 0
-    const activas = canchas?.filter((c) => c.estado === 'ACTIVA').length ?? 0
+    const canchasActivas = canchas?.filter((c) => c.estado === 'ACTIVA') ?? []
+    const activas = canchasActivas.length
 
-    // Ocupación de hoy: horas efectivamente reservadas vs. horas disponibles
-    // estimadas (canchas activas × 14h de operación). Usa la duración real de
-    // cada reserva en lugar de contarlas como bloques de 1h.
+    // Ocupación de hoy: horas efectivamente reservadas vs. horas operativas
+    // REALES de hoy. Por cada cancha activa sumamos (cierre − apertura) del
+    // horario que coincide con el día de semana de hoy en Perú; si la cancha
+    // no atiende hoy, aporta 0. Usa la duración real de cada reserva en lugar
+    // de contarlas como bloques de 1h.
+    const diaHoy = diaSemanaPeru(hoy)
     const horasReservadasHoy = reservas
       .filter(
         (r) =>
@@ -84,9 +117,19 @@ export default function DashboardPage() {
         const horas = (fin - ini) / 3_600_000
         return acc + (horas > 0 ? horas : 0)
       }, 0)
-    const horasDisponibles = Math.max(activas * 14, 1)
+    // Horas operativas reales de hoy = Σ (cierre − apertura) del horario de hoy
+    // de cada cancha activa. Canchas sin horario hoy aportan 0.
+    const horasOperativasHoy = canchasActivas.reduce((acc, c) => {
+      const horarioHoy = c.horarios?.find((h) => h.diaSemana === diaHoy)
+      if (!horarioHoy) return acc
+      const horas =
+        horaADecimal(horarioHoy.horaCierre) -
+        horaADecimal(horarioHoy.horaApertura)
+      return acc + (horas > 0 ? horas : 0)
+    }, 0)
+    const horasDisponibles = Math.max(horasOperativasHoy, 1)
     const ocupacion =
-      activas > 0
+      horasOperativasHoy > 0
         ? Math.min(100, Math.round((horasReservadasHoy / horasDisponibles) * 100))
         : 0
 

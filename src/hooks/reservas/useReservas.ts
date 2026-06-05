@@ -12,6 +12,8 @@ export interface FilterReservas {
   localId?: string
   desde?: string
   hasta?: string
+  /** Búsqueda libre por cliente (nombre / apellido / correo). */
+  busqueda?: string
 }
 
 /**

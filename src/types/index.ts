@@ -251,6 +251,8 @@ export interface PagoReserva {
   estado: EstadoPagoReserva
   referencia: string | null
   fechaPago: string | null
+  /** Momento de la devolución (estado DEVUELTO); null si no se devolvió. */
+  fechaDevolucion?: string | null
 }
 
 export interface AuditoriaReserva {
@@ -498,4 +500,12 @@ export interface CajaSesion {
 export interface CajaResumen {
   egresos: EgresoCaja[]
   totalEgresos: number
+  /** Efectivo cobrado en el día (pagos EFECTIVO con fechaPago en el día). */
+  efectivoRecibido: number
+  /** Egresos pagados en efectivo en el día. */
+  egresosEfectivo: number
+  /** Devoluciones en efectivo del día (pagos con fechaDevolucion en el día). */
+  devolucionesEfectivo: number
+  /** efectivoRecibido − egresosEfectivo − devolucionesEfectivo (sin monto inicial). */
+  efectivoNeto: number
 }

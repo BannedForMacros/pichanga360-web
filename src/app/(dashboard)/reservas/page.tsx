@@ -8,6 +8,7 @@ import { useDashboardMenu } from '@/components/dashboard/DashboardShell'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { ReservaForm } from '@/components/reservas/ReservaForm'
 import { TablaReservas } from '@/components/reservas/TablaReservas'
@@ -33,9 +34,20 @@ export default function ReservasPage() {
   const esClientePuro =
     !!me?.roles?.length && me.roles.every((r) => r.rol === 'CLIENTE')
 
+  // Búsqueda por cliente (solo vista dueño). El input actualiza `busqueda` y, con
+  // un debounce de 300ms, `busquedaDebounced` es lo que se envía al backend para
+  // no disparar una request por cada tecla.
+  const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaDebounced(busqueda.trim()), 300)
+    return () => clearTimeout(t)
+  }, [busqueda])
+
   const { data: reservasResp, isLoading } = useReservas({
     localId: esClientePuro ? undefined : localId ?? undefined,
     limit: 50,
+    busqueda: esClientePuro || !busquedaDebounced ? undefined : busquedaDebounced,
   })
   const { data: canchas } = useCanchasByLocal(
     esClientePuro ? undefined : localId ?? undefined,
@@ -84,6 +96,8 @@ export default function ReservasPage() {
       localId={localId ?? undefined}
       isLoading={loadingLocal || isLoading}
       onOpenMenu={openMenu}
+      busqueda={busqueda}
+      onBuscar={setBusqueda}
     />
   )
 }
@@ -94,9 +108,19 @@ interface DueñoViewProps {
   localId?: string
   isLoading: boolean
   onOpenMenu: () => void
+  busqueda: string
+  onBuscar: (v: string) => void
 }
 
-function DueñoView({ canchas, reservas, localId, isLoading, onOpenMenu }: DueñoViewProps) {
+function DueñoView({
+  canchas,
+  reservas,
+  localId,
+  isLoading,
+  onOpenMenu,
+  busqueda,
+  onBuscar,
+}: DueñoViewProps) {
   const [vista, setVista] = useState<Vista>('calendario')
   const [open, setOpen] = useState(false)
   const [canchaCalendario, setCanchaCalendario] = useState<string | undefined>()
@@ -193,6 +217,18 @@ function DueñoView({ canchas, reservas, localId, isLoading, onOpenMenu }: Dueñ
                 value={canchaCalendario}
                 onChange={(v) => setCanchaCalendario(v)}
                 placeholder="Selecciona una cancha"
+              />
+            </div>
+          )}
+
+          {vista === 'tabla' && (
+            <div className="w-full sm:w-80">
+              <Input
+                value={busqueda}
+                onChange={(e) => onBuscar(e.target.value)}
+                leftIcon={<Search size={16} />}
+                placeholder="Buscar por cliente o DNI…"
+                aria-label="Buscar reservas por cliente"
               />
             </div>
           )}

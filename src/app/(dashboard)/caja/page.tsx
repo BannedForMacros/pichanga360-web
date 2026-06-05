@@ -25,6 +25,7 @@ import { useLocalActual } from '@/hooks/auth/useLocalActual'
 import { useReservas } from '@/hooks/reservas/useReservas'
 import {
   useCajaActual,
+  useCajaResumen,
   useEgresos,
   useEliminarEgreso,
 } from '@/hooks/caja/useCaja'
@@ -92,6 +93,13 @@ export default function CajaPage() {
     localId ?? undefined,
     { desde: desde.toISOString(), hasta: hasta.toISOString() },
   )
+
+  // Resumen de caja calculado en el BACKEND: cifras de EFECTIVO por evento
+  // (fechaPago / fechaDevolucion / fecha de egreso) del día. Es la fuente
+  // correcta para el arqueo — el dataset de `useReservas` (filtrado por fecha
+  // del partido) no permite sumar por fecha de pago/devolución cross-day.
+  const { data: resumen } = useCajaResumen(localId ?? undefined, fecha)
+
   const eliminarEgreso = useEliminarEgreso()
 
   const reservas = useMemo<Reserva[]>(
@@ -144,19 +152,16 @@ export default function CajaPage() {
     return { porMetodo, movimientos, cobrado, porCobrar, devuelto }
   }, [reservas])
 
-  // Totales de egresos (todos y solo efectivo).
+  // Total de egresos del día (para la métrica y el detalle). El desglose en
+  // EFECTIVO para el arqueo lo aporta el resumen del backend (por evento).
   const egresosTotales = useMemo(() => {
     let total = 0
-    let efectivo = 0
     for (const e of egresos) {
-      const monto = Number(e.monto ?? 0)
-      total += monto
-      if (e.metodoPago === 'EFECTIVO') efectivo += monto
+      total += Number(e.monto ?? 0)
     }
-    return { total, efectivo }
+    return { total }
   }, [egresos])
 
-  const cobradoEfectivo = caja.porMetodo.get('EFECTIVO')?.total ?? 0
   const montoInicial = cajaSesion ? Number(cajaSesion.montoInicial) : 0
 
   const isLoading =
@@ -485,8 +490,9 @@ export default function CajaPage() {
               onClose={() => setCerrarOpen(false)}
               sesionId={cajaSesion.id}
               montoInicial={montoInicial}
-              cobradoEfectivo={cobradoEfectivo}
-              egresosEfectivo={egresosTotales.efectivo}
+              cobradoEfectivo={resumen?.efectivoRecibido ?? 0}
+              egresosEfectivo={resumen?.egresosEfectivo ?? 0}
+              devolucionesEfectivo={resumen?.devolucionesEfectivo ?? 0}
             />
           )}
         </>
