@@ -81,12 +81,17 @@ export type DeporteCodigo =
 export type SuperficieCodigo = 'SINTETICO' | 'GRASS' | 'CEMENTO' | 'MADERA'
 
 // ---------- Identidad ----------
+export type TipoDocumento = 'DNI' | 'RUC' | 'CE' | 'PASAPORTE'
+
 export interface Usuario {
   id: string
   email: string
   nombre: string
   apellido: string
   telefono: string | null
+  tipoDocumento?: TipoDocumento | null
+  numeroDocumento?: string | null
+  razonSocial?: string | null
   avatarUrl: string | null
   emailVerificado: boolean
   activo: boolean

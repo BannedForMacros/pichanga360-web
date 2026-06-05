@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import toast from 'react-hot-toast'
 import {
+  Building2,
   IdCard,
   Mail,
   Phone,
@@ -21,7 +22,7 @@ import {
   useBuscarUsuarios,
   useCrearClienteWalkin,
 } from '@/hooks/usuarios/useUsuarios'
-import { useConsultarDni } from '@/hooks/decolecta/useDecolecta'
+import { useConsultarDni, useConsultarRuc } from '@/hooks/decolecta/useDecolecta'
 import {
   clienteWalkinSchema,
   type ClienteWalkinFormData,
@@ -35,8 +36,15 @@ interface Props {
   error?: string
 }
 
+/** Etiqueta corta del documento de un cliente (ej. "DNI 12345678"). */
+function docCliente(u: Pick<Usuario, 'tipoDocumento' | 'numeroDocumento'>) {
+  if (!u.numeroDocumento) return null
+  return `${u.tipoDocumento ?? 'Doc.'} ${u.numeroDocumento}`
+}
+
 export function ClienteSelectorReserva({ value, onChange, error }: Props) {
   const [modo, setModo] = useState<'buscar' | 'crear'>('buscar')
+  const [docTipo, setDocTipo] = useState<'DNI' | 'RUC'>('DNI')
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
 
@@ -48,7 +56,9 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
   const { data: resultados, isLoading } = useBuscarUsuarios(debounced, 8)
   const crearWalkin = useCrearClienteWalkin()
   const consultarDni = useConsultarDni()
+  const consultarRuc = useConsultarRuc()
   const [dni, setDni] = useState('')
+  const [ruc, setRuc] = useState('')
 
   const {
     register,
@@ -59,12 +69,21 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
   } = useForm<ClienteWalkinFormData>({
     resolver: zodResolver(clienteWalkinSchema),
     defaultValues: {
+      tipoDocumento: 'DNI',
+      numeroDocumento: '',
+      razonSocial: '',
       nombre: '',
       apellido: '',
       telefono: '',
       email: '',
     },
   })
+
+  // Cambia entre persona (DNI) y empresa (RUC); sincroniza el tipo en el form.
+  const elegirTipo = (tipo: 'DNI' | 'RUC') => {
+    setDocTipo(tipo)
+    setValue('tipoDocumento', tipo)
+  }
 
   const buscarPorDni = async () => {
     if (!/^\d{8}$/.test(dni)) {
@@ -78,7 +97,28 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
         .filter(Boolean)
         .join(' ')
       setValue('apellido', apellido, { shouldValidate: true })
+      setValue('tipoDocumento', 'DNI')
+      setValue('numeroDocumento', dni)
       toast.success(`RENIEC: ${r.full_name}`, { position: 'top-right' })
+    } catch {
+      /* el toast del interceptor ya muestra el error */
+    }
+  }
+
+  const buscarPorRuc = async () => {
+    if (!/^\d{11}$/.test(ruc)) {
+      toast.error('El RUC debe tener 11 dígitos', { position: 'top-right' })
+      return
+    }
+    try {
+      const r = await consultarRuc.mutateAsync(ruc)
+      setValue('razonSocial', r.razon_social, { shouldValidate: true })
+      setValue('tipoDocumento', 'RUC')
+      setValue('numeroDocumento', ruc)
+      const estado = r.estado ? ` (${r.estado})` : ''
+      toast.success(`SUNAT: ${r.razon_social}${estado}`, {
+        position: 'top-right',
+      })
     } catch {
       /* el toast del interceptor ya muestra el error */
     }
@@ -88,10 +128,14 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
     const nuevo = await crearWalkin.mutateAsync(data)
     onChange(nuevo)
     reset()
+    setDni('')
+    setRuc('')
+    setDocTipo('DNI')
     setModo('buscar')
   })
 
   if (value) {
+    const doc = docCliente(value)
     return (
       <div className="rounded-xl border-2 border-primary bg-primary-50 p-3">
         <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-primary">
@@ -106,9 +150,14 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
             />
             <div>
               <p className="font-semibold text-dark">
-                {value.nombre} {value.apellido}
+                {`${value.nombre} ${value.apellido}`.trim()}
               </p>
-              <p className="flex items-center gap-3 text-xs text-gray-600">
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                {doc && (
+                  <span className="inline-flex items-center gap-1 font-medium text-gray-700">
+                    <IdCard size={11} /> {doc}
+                  </span>
+                )}
                 {value.telefono && (
                   <span className="inline-flex items-center gap-1">
                     <Phone size={11} /> {value.telefono}
@@ -180,14 +229,15 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Busca por nombre, apellido o email"
+              placeholder="Busca por nombre, DNI, RUC o email"
               className="h-11 w-full rounded-xl border border-gray-300 bg-white pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {search.trim().length < 2 ? (
             <p className="mt-2 text-xs text-gray-500">
-              Escribe al menos 2 letras para buscar clientes existentes.
+              Escribe al menos 2 letras (o el documento) para buscar clientes
+              existentes.
             </p>
           ) : isLoading ? (
             <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
@@ -207,96 +257,181 @@ export function ClienteSelectorReserva({ value, onChange, error }: Props) {
             </p>
           ) : (
             <ul className="mt-2 max-h-64 overflow-auto rounded-xl border border-gray-200 bg-white p-1">
-              {resultados.data.map((u) => (
-                <li key={u.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange(u)
-                      setSearch('')
-                    }}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-primary-50"
-                  >
-                    <Avatar
-                      name={`${u.nombre} ${u.apellido}`}
-                      size="sm"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold text-dark">
-                        {u.nombre} {u.apellido}
+              {resultados.data.map((u) => {
+                const doc = docCliente(u)
+                return (
+                  <li key={u.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange(u)
+                        setSearch('')
+                      }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-primary-50"
+                    >
+                      <Avatar name={`${u.nombre} ${u.apellido}`} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-dark">
+                          {`${u.nombre} ${u.apellido}`.trim()}
+                        </span>
+                        <span className="block truncate text-xs text-gray-500">
+                          {doc ? `${doc} · ` : ''}
+                          {u.telefono ?? u.email}
+                        </span>
                       </span>
-                      <span className="block truncate text-xs text-gray-500">
-                        {u.telefono ?? u.email}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3">
+          {/* Persona (DNI) o Empresa (RUC) */}
+          <div className="mb-3 inline-flex items-center gap-1 rounded-xl bg-white p-1 ring-1 ring-gray-200">
+            <button
+              type="button"
+              onClick={() => elegirTipo('DNI')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold transition',
+                docTipo === 'DNI'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-gray-600 hover:text-primary',
+              )}
+            >
+              <User size={12} /> Persona (DNI)
+            </button>
+            <button
+              type="button"
+              onClick={() => elegirTipo('RUC')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-lg px-3 py-1 text-xs font-semibold transition',
+                docTipo === 'RUC'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-gray-600 hover:text-primary',
+              )}
+            >
+              <Building2 size={12} /> Empresa (RUC)
+            </button>
+          </div>
+
           <p className="mb-3 text-xs text-gray-600">
-            Datos mínimos del cliente. Email es opcional — si no lo tienes,
-            puedes registrar solo nombre y teléfono.
+            {docTipo === 'DNI'
+              ? 'Datos del cliente. Email es opcional — puedes registrar solo nombre y teléfono.'
+              : 'Cliente empresa. Buscamos la razón social por RUC en SUNAT.'}
           </p>
 
-          {/* Búsqueda por DNI (RENIEC) */}
-          <div className="mb-3">
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">
-              Buscar por DNI (RENIEC)
-            </label>
-            <div className="flex items-stretch gap-2">
-              <div className="flex-1">
+          {docTipo === 'DNI' ? (
+            <>
+              {/* Búsqueda por DNI (RENIEC) */}
+              <div className="mb-3">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Buscar por DNI (RENIEC)
+                </label>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1">
+                    <Input
+                      leftIcon={<IdCard size={14} />}
+                      placeholder="8 dígitos"
+                      maxLength={8}
+                      value={dni}
+                      onChange={(e) =>
+                        setDni(e.target.value.replace(/\D/g, '').slice(0, 8))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          buscarPorDni()
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="md"
+                    variant="outline"
+                    onClick={buscarPorDni}
+                    loading={consultarDni.isPending}
+                    disabled={dni.length !== 8}
+                  >
+                    Buscar
+                  </Button>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Autocompleta nombre y apellido desde RENIEC. Puedes editar
+                  después si fuera necesario.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
                 <Input
-                  leftIcon={<IdCard size={14} />}
-                  placeholder="8 dígitos"
-                  maxLength={8}
-                  value={dni}
-                  onChange={(e) =>
-                    setDni(e.target.value.replace(/\D/g, '').slice(0, 8))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      buscarPorDni()
-                    }
-                  }}
+                  label="Nombre"
+                  leftIcon={<User size={14} />}
+                  placeholder="Carlos"
+                  {...register('nombre')}
+                  error={errors.nombre?.message}
+                />
+                <Input
+                  label="Apellido"
+                  placeholder="Pérez"
+                  {...register('apellido')}
+                  error={errors.apellido?.message}
                 />
               </div>
-              <Button
-                type="button"
-                size="md"
-                variant="outline"
-                onClick={buscarPorDni}
-                loading={consultarDni.isPending}
-                disabled={dni.length !== 8}
-              >
-                Buscar
-              </Button>
-            </div>
-            <p className="mt-1 text-[11px] text-gray-500">
-              Autocompleta nombre y apellido desde RENIEC. Puedes editar
-              después si fuera necesario.
-            </p>
-          </div>
+            </>
+          ) : (
+            <>
+              {/* Búsqueda por RUC (SUNAT) */}
+              <div className="mb-3">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Buscar por RUC (SUNAT)
+                </label>
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1">
+                    <Input
+                      leftIcon={<Building2 size={14} />}
+                      placeholder="11 dígitos"
+                      maxLength={11}
+                      value={ruc}
+                      onChange={(e) =>
+                        setRuc(e.target.value.replace(/\D/g, '').slice(0, 11))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          buscarPorRuc()
+                        }
+                      }}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="md"
+                    variant="outline"
+                    onClick={buscarPorRuc}
+                    loading={consultarRuc.isPending}
+                    disabled={ruc.length !== 11}
+                  >
+                    Buscar
+                  </Button>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Autocompleta la razón social desde SUNAT. Puedes editarla si
+                  fuera necesario.
+                </p>
+              </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input
-              label="Nombre"
-              leftIcon={<User size={14} />}
-              placeholder="Carlos"
-              {...register('nombre')}
-              error={errors.nombre?.message}
-            />
-            <Input
-              label="Apellido"
-              placeholder="Pérez"
-              {...register('apellido')}
-              error={errors.apellido?.message}
-            />
-          </div>
+              <Input
+                label="Razón social"
+                leftIcon={<Building2 size={14} />}
+                placeholder="REXTIE S.A.C."
+                {...register('razonSocial')}
+                error={errors.razonSocial?.message}
+              />
+            </>
+          )}
+
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Input
               label="Teléfono"

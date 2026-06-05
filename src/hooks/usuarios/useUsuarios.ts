@@ -35,11 +35,19 @@ export function useCrearClienteWalkin() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: ClienteWalkinFormData) => {
+      const esEmpresa = input.tipoDocumento === 'RUC'
+      // Para una empresa (RUC) el "nombre" del usuario es la razón social y no
+      // hay apellido; para una persona se usan nombre y apellido normales.
       const payload = {
-        nombre: input.nombre,
-        apellido: input.apellido,
+        nombre: (esEmpresa ? input.razonSocial : input.nombre)?.trim() || '',
+        apellido: esEmpresa ? undefined : input.apellido?.trim() || undefined,
         telefono: input.telefono?.length ? input.telefono : undefined,
         email: input.email?.length ? input.email : undefined,
+        tipoDocumento: input.tipoDocumento || undefined,
+        numeroDocumento: input.numeroDocumento?.length
+          ? input.numeroDocumento
+          : undefined,
+        razonSocial: esEmpresa ? input.razonSocial?.trim() || undefined : undefined,
       }
       const { data } = await api.post<Usuario>('/usuarios/walkin', payload)
       return data

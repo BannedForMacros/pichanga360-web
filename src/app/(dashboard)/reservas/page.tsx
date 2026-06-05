@@ -227,7 +227,7 @@ function DueñoView({
                 value={busqueda}
                 onChange={(e) => onBuscar(e.target.value)}
                 leftIcon={<Search size={16} />}
-                placeholder="Buscar por cliente o DNI…"
+                placeholder="Buscar por cliente, DNI o RUC…"
                 aria-label="Buscar reservas por cliente"
               />
             </div>
