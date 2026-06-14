@@ -82,7 +82,8 @@ export default function CajaPage() {
     localId: localId ?? undefined,
     desde: desde.toISOString(),
     hasta: hasta.toISOString(),
-    limit: 200,
+    // El backend valida un máximo de 100 por página (PaginationQueryDto @Max(100)).
+    limit: 100,
   })
 
   const { data: cajaSesion, isLoading: loadingCaja } = useCajaActual(
